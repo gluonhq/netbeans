@@ -1,8 +1,12 @@
-package com.gluonhq.netbeans.nbfx.launcher;
+package com.gluonhq.netbeans.nbfx.launcher.ui;
 
+import com.gluonhq.netbeans.nbfx.docking.DockArea;
+import com.gluonhq.netbeans.nbfx.docking.DropTarget;
 import javafx.collections.ObservableList;
 import javafx.css.PseudoClass;
 import javafx.geometry.Bounds;
+import javafx.geometry.Side;
+import javafx.scene.Node;
 import javafx.scene.SnapshotParameters;
 import javafx.scene.control.Label;
 import javafx.scene.control.Tab;
@@ -22,7 +26,7 @@ import java.util.Objects;
  * in combination with a temporary tab inserted at the computed drop index, that shifts the existing
  * tabs to the right.</p>
  */
-final class TabDropIndicator {
+public final class TabDropIndicator {
 
     static final String PLACEHOLDER_TAB_CLASS = "nbfx-placeholder-tab";
 
@@ -31,13 +35,44 @@ final class TabDropIndicator {
 
     private static Tab placeholderTab;
     private static TabPane targetTabPane;
+    /** The area currently drawing a drop line, if any. */
+    private static DockArea<TabPane> splitArea;
 
     private TabDropIndicator() {}
 
     /** Activates the pseudo-class on {@code tabPane} and inserts/moves the placeholder. */
     static void show(TabPane tabPane, double localX, Tab dragged) {
         Objects.requireNonNull(tabPane).pseudoClassStateChanged(DROP_TARGET_PC, true);
+        clearSplit();
         insertOrMovePlaceholder(tabPane, localX, dragged);
+    }
+
+    /**
+     * Marks {@code target} - an edge of the hovered {@code tabPane}, or of the {@link DockArea} it
+     * sits in - as about to be split: the drop docks the dragged tab in a new pane there. The area
+     * draws the line; no placeholder is shown, since the tab does not join the hovered pane's header.
+     */
+    static void showSplit(TabPane tabPane, DropTarget<TabPane> target) {
+        Objects.requireNonNull(tabPane).pseudoClassStateChanged(DROP_TARGET_PC, false);
+        if (targetTabPane == tabPane) {
+            removePlaceholder();
+        }
+        DockArea<TabPane> area = Docking.area();
+        if (area == null || !area.contains(tabPane)) {
+            return;
+        }
+        if (splitArea != area) {
+            clearSplit();
+        }
+        splitArea = area;
+        area.showDropLine(target);
+    }
+
+    private static void clearSplit() {
+        if (splitArea != null) {
+            splitArea.hideDropLine();
+            splitArea = null;
+        }
     }
 
     /**
@@ -48,9 +83,10 @@ final class TabDropIndicator {
         Objects.requireNonNull(tabPane).pseudoClassStateChanged(DROP_TARGET_PC, true);
     }
 
-    /** Deactivates the pseudo-class and removes the placeholder if present in the {@code tabPane}. */
+    /** Deactivates the pseudo-classes and removes the placeholder if present in the {@code tabPane}. */
     static void hide(TabPane tabPane) {
         Objects.requireNonNull(tabPane).pseudoClassStateChanged(DROP_TARGET_PC, false);
+        clearSplit();
         if (targetTabPane == tabPane) {
             removePlaceholder();
         }
@@ -61,6 +97,7 @@ final class TabDropIndicator {
         for (TabPane tp : Objects.requireNonNull(tabPanes)) {
             tp.pseudoClassStateChanged(DROP_TARGET_PC, false);
         }
+        clearSplit();
         removePlaceholder();
     }
 

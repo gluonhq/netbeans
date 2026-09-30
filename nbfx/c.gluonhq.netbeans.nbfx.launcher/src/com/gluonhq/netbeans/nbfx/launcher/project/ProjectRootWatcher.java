@@ -1,6 +1,6 @@
-package com.gluonhq.netbeans.nbfx.launcher;
+package com.gluonhq.netbeans.nbfx.launcher.project;
 
-import com.gluonhq.netbeans.nbfx.api.OpenProject;
+import com.gluonhq.netbeans.nbfx.api.project.OpenProject;
 import java.io.File;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -28,7 +28,7 @@ import org.openide.filesystems.FileRenameEvent;
  * any thread: the callback is invoked on the thread that delivered the event and it is up to the
  * caller to hop to the FX thread.
  */
-final class ProjectRootWatcher {
+public final class ProjectRootWatcher {
 
     private static final Logger LOG = Logger.getLogger(ProjectRootWatcher.class.getName());
 
@@ -37,12 +37,12 @@ final class ProjectRootWatcher {
 
     private final Consumer<OpenProject> onRootGone;
 
-    ProjectRootWatcher(Consumer<OpenProject> onRootGone) {
+    public ProjectRootWatcher(Consumer<OpenProject> onRootGone) {
         this.onRootGone = Objects.requireNonNull(onRootGone, "onRootGone");
     }
 
     /** Starts watching {@code project}'s root folder. Watching an already watched project is a no-op. */
-    synchronized void watch(OpenProject project) {
+    public synchronized void watch(OpenProject project) {
         if (project == null || watches.containsKey(project.getPath())) {
             return;
         }
@@ -56,7 +56,7 @@ final class ProjectRootWatcher {
     }
 
     /** Stops watching the project at {@code path}. Unknown paths are ignored. */
-    synchronized void unwatch(String path) {
+    public synchronized void unwatch(String path) {
         Watch watch = watches.remove(path);
         if (watch != null) {
             watch.project.getRoot().removeFileChangeListener(watch);
@@ -64,9 +64,9 @@ final class ProjectRootWatcher {
     }
 
     /** Stops watching every project. */
-    synchronized void unwatchAll() {
+    public synchronized void unwatchAll() {
         for (String path : List.copyOf(watches.keySet())) {
-            unwatch(path);
+          unwatch(path);
         }
     }
 
@@ -81,7 +81,7 @@ final class ProjectRootWatcher {
      * <p>
      * Called from the refresh thread, so it must not touch the FX thread itself; the callback hops.
      */
-    void checkRoots() {
+    public void checkRoots() {
         for (Watch watch : watches()) {
             if (!new File(watch.project.getPath()).isDirectory()) {
                 rootGone(watch.project, "gone from disk");
@@ -110,7 +110,7 @@ final class ProjectRootWatcher {
                 return;
             }
             // A renamed root outlives the project it used to be, so its listener must go with it.
-            unwatch(project.getPath());
+          unwatch(project.getPath());
         }
         LOG.warning("The folder of project " + project.getPath() + " was " + reason
                 + "; closing the project");

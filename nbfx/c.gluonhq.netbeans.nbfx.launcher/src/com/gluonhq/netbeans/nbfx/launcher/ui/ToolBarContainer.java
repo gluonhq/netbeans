@@ -1,4 +1,4 @@
-package com.gluonhq.netbeans.nbfx.launcher;
+package com.gluonhq.netbeans.nbfx.launcher.ui;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -29,7 +29,7 @@ import javafx.scene.layout.Region;
  * <p>The model is only changed when the drop actually completes, so a canceled drop leaves
  * everything untouched.</p>
  */
-final class ToolBarContainer extends Pane {
+public final class ToolBarContainer extends Pane {
 
     private static final DataFormat TOOLBAR = new DataFormat("application/x-nbfx-toolbar");
 
@@ -55,7 +55,7 @@ final class ToolBarContainer extends Pane {
     private Target dragTarget;
     private double dragPinnedHeight, draggedWidth, draggedHeight;
 
-    ToolBarContainer(ToolBar... toolBars) {
+    public ToolBarContainer(ToolBar... toolBars) {
         getStyleClass().add("toolbar-container");
         // Make the whole bounding box a drop target, including any empty area kept while dragging.
         setPickOnBounds(true);
@@ -84,19 +84,19 @@ final class ToolBarContainer extends Pane {
     // --- arrangement persistence ---------------------------------------------
 
     /** Runs the given action whenever the user completes a drag that changes the arrangement. */
-    void setOnArrangementChanged(Runnable action) {
+    public void setOnArrangementChanged(Runnable action) {
         this.onArrangementChanged = action;
     }
 
     /** Runs the given action whenever a toolbar is shown or hidden. */
-    void setOnVisibilityChanged(Runnable action) {
+    public void setOnVisibilityChanged(Runnable action) {
         this.onVisibilityChanged = action;
     }
 
     // --- toolbar visibility --------------------------------------------------
 
     /** Returns the toolbars in their original order (whatever their current arrangement or visibility). */
-    List<ToolBar> getToolBars() {
+    public List<ToolBar> getToolBars() {
         return List.copyOf(toolBars);
     }
 
@@ -104,7 +104,7 @@ final class ToolBarContainer extends Pane {
      * Restores the default arrangement: all toolbars visible, in their original order, on a single
      * row. Notifies both the arrangement and visibility listeners so the new state is persisted.
      */
-    void resetArrangement() {
+    public void resetArrangement() {
         List<List<ToolBar>> model = new ArrayList<>();
         model.add(new ArrayList<>(defaultOrder));
         rows = model;
@@ -118,7 +118,7 @@ final class ToolBarContainer extends Pane {
     }
 
     /** Comma-separated ids of the currently hidden toolbars, in original order (empty if none are hidden). */
-    String getHiddenToolBarIds() {
+    public String getHiddenToolBarIds() {
         StringBuilder sb = new StringBuilder();
         for (ToolBar bar : toolBars) {
             if (!bar.isVisible()) {
@@ -139,7 +139,7 @@ final class ToolBarContainer extends Pane {
      * Applies a hidden-toolbar set previously produced by {@link #getHiddenToolBarIds()}: toolbars
      * whose id is listed are hidden, all others are shown. A {@code null} or blank value shows all.
      */
-    void applyHiddenToolBarIds(String hidden) {
+    public void applyHiddenToolBarIds(String hidden) {
         Set<String> hiddenIds = new HashSet<>();
         if (hidden != null && !hidden.isBlank()) {
             for (String token : hidden.split(",")) {
@@ -170,7 +170,7 @@ final class ToolBarContainer extends Pane {
      * by {@code ,} and rows separated by {@code ;}, e.g. {@code "file,clipboard;edit"}. Returns an
      * empty string if any tool bar lacks a usable id (arrangement can't be persisted reliably).
      */
-    String getArrangement() {
+    public String getArrangement() {
         StringBuilder sb = new StringBuilder();
         for (int r = 0; r < rows.size(); r++) {
             if (r > 0) {
@@ -199,7 +199,7 @@ final class ToolBarContainer extends Pane {
      *
      * @return {@code true} if the arrangement was valid and applied
      */
-    boolean applyArrangement(String arrangement) {
+    public boolean applyArrangement(String arrangement) {
         if (dragging || arrangement == null || arrangement.isBlank()) {
             return false;
         }

@@ -1,7 +1,7 @@
-package com.gluonhq.netbeans.nbfx.launcher;
+package com.gluonhq.netbeans.nbfx.launcher.ui;
 
-import com.gluonhq.netbeans.nbfx.api.EditorDocument;
-import com.gluonhq.netbeans.nbfx.api.OpenProject;
+import com.gluonhq.netbeans.nbfx.api.editor.EditorDocument;
+import com.gluonhq.netbeans.nbfx.api.project.OpenProject;
 import java.io.File;
 import java.util.List;
 import java.util.Objects;
@@ -13,7 +13,7 @@ import java.util.Objects;
  * disambiguated with the name of the project they belong to. The tooltip always names the owning
  * project and the file's path within it.
  */
-final class TabTitles {
+public final class TabTitles {
 
     /** Separates the project name from the file path in a tab tooltip. */
     private static final String TOOLTIP_SEPARATOR = " \u2014 ";
@@ -29,7 +29,7 @@ final class TabTitles {
      * @param document     the document whose tab is being labelled
      * @param openDocuments every open document, including {@code document}
      */
-    static String titleFor(EditorDocument document, List<? extends EditorDocument> openDocuments) {
+    public static String titleFor(EditorDocument document, List<? extends EditorDocument> openDocuments) {
         String title = document.getTitle();
         String projectPath = document.getProjectPath();
         String projectName = projectNameOf(projectPath);
@@ -46,7 +46,7 @@ final class TabTitles {
      * The tooltip for {@code document}'s tab: {@code <project> — <path within the project>}, or the
      * file's full path when it belongs to no open project.
      */
-    static String tooltipFor(EditorDocument document) {
+    public static String tooltipFor(EditorDocument document) {
         String filePath = OpenProject.pathOf(document.getFileObject());
         String projectPath = document.getProjectPath();
         String projectName = projectNameOf(projectPath);

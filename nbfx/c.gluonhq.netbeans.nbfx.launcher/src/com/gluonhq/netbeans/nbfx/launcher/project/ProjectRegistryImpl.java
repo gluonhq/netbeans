@@ -1,8 +1,10 @@
-package com.gluonhq.netbeans.nbfx.launcher;
+package com.gluonhq.netbeans.nbfx.launcher.project;
 
-import com.gluonhq.netbeans.nbfx.api.OpenProject;
-import com.gluonhq.netbeans.nbfx.api.ProjectRegistry;
+import com.gluonhq.netbeans.nbfx.api.project.OpenProject;
+import com.gluonhq.netbeans.nbfx.api.project.ProjectRegistry;
 import java.io.File;
+import java.io.IOException;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.logging.Level;
@@ -14,7 +16,10 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import org.netbeans.api.project.FileOwnerQuery;
 import org.netbeans.api.project.Project;
+import org.netbeans.api.project.ProjectManager;
+import org.netbeans.api.project.ui.OpenProjects;
 import org.openide.filesystems.FileObject;
+import org.openide.util.RequestProcessor;
 import org.openide.util.lookup.ServiceProvider;
 
 /**
@@ -25,6 +30,14 @@ import org.openide.util.lookup.ServiceProvider;
 public class ProjectRegistryImpl implements ProjectRegistry {
 
     private static final Logger LOG = Logger.getLogger(ProjectRegistryImpl.class.getName());
+
+    /**
+     * Platform project open/close must never run on the JavaFX thread: {@link OpenProjects} works
+     * under the NetBeans mutex, which dispatches to the AWT EDT. On macOS the FX thread is the
+     * AppKit main thread AWT needs, so blocking it on the EDT deadlocks the app.
+     */
+    private static final RequestProcessor PLATFORM_RP =
+            new RequestProcessor("nbfx-platform-projects", 1);
 
     private final ObservableList<OpenProject> projects = FXCollections.observableArrayList();
     private final ObservableList<OpenProject> unmodifiableProjects =
@@ -90,6 +103,7 @@ public class ProjectRegistryImpl implements ProjectRegistry {
         OpenProject project = new OpenProject(root);
         projects.add(project);
         select(project);
+        openInPlatform(root);
         return project;
     }
 
@@ -104,11 +118,15 @@ public class ProjectRegistryImpl implements ProjectRegistry {
             selected.set(mostRecentOther(project));
         }
         projects.remove(project);
+        closeInPlatform(project.getRoot());
     }
 
     @Override
     public void closeAll() {
         selected.set(null);
+        for (OpenProject project : List.copyOf(projects)) {
+            closeInPlatform(project.getRoot());
+        }
         projects.clear();
     }
 
@@ -168,5 +186,50 @@ public class ProjectRegistryImpl implements ProjectRegistry {
             LOG.log(Level.FINE, "Could not resolve the owning project of " + file, ex);
         }
         return Optional.empty();
+    }
+
+    /**
+     * Also opens the project through the NetBeans platform ({@link OpenProjects}), so the project
+     * type's open hook runs: it registers the source roots and dependency classpaths in the global
+     * path registry, which in turn makes the java indexer scan and watch them. Without this, java
+     * queries (code completion, diagnostics) work off stale or missing indexes.
+     */
+    private static void openInPlatform(FileObject root) {
+        PLATFORM_RP.post(() -> {
+            Project project = platformProjectOf(root);
+            if (project == null) {
+                return;
+            }
+            try {
+                OpenProjects.getDefault().open(new Project[] {project}, false);
+            } catch (RuntimeException | LinkageError ex) {
+                LOG.log(Level.FINE, "Could not open " + root + " in the platform", ex);
+            }
+        });
+    }
+
+    /** Counterpart of {@link #openInPlatform}: unregisters the project's roots from indexing. */
+    private static void closeInPlatform(FileObject root) {
+        PLATFORM_RP.post(() -> {
+            Project project = platformProjectOf(root);
+            if (project == null) {
+                return;
+            }
+            try {
+                OpenProjects.getDefault().close(new Project[] {project});
+            } catch (RuntimeException | LinkageError ex) {
+                LOG.log(Level.FINE, "Could not close " + root + " in the platform", ex);
+            }
+        });
+    }
+
+    /** The NetBeans project at {@code root}, or {@code null} if there is none (plain folders, tests). */
+    private static Project platformProjectOf(FileObject root) {
+        try {
+            return ProjectManager.getDefault().findProject(root);
+        } catch (IOException | RuntimeException | LinkageError ex) {
+            LOG.log(Level.FINE, "Could not resolve a platform project at " + root, ex);
+            return null;
+        }
     }
 }

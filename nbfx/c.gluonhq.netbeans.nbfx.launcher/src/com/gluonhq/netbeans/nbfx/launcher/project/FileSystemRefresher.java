@@ -1,4 +1,4 @@
-package com.gluonhq.netbeans.nbfx.launcher;
+package com.gluonhq.netbeans.nbfx.launcher.project;
 
 import java.io.File;
 import java.util.List;
@@ -35,7 +35,7 @@ import org.openide.util.NbPreferences;
  * happens on a background thread: a refresh walks the projects on disk and must never block the FX
  * thread. Requests that arrive while one is running are collapsed into a single follow-up run.
  */
-final class FileSystemRefresher {
+public final class FileSystemRefresher {
 
     private static final Logger LOG = Logger.getLogger(FileSystemRefresher.class.getName());
 
@@ -59,11 +59,11 @@ final class FileSystemRefresher {
     /** Whether the user has already been told that refreshing is off; it is worth saying once. */
     private boolean warnedDisabled;
 
-    FileSystemRefresher(Supplier<List<File>> roots, Consumer<File[]> refresh) {
+    public FileSystemRefresher(Supplier<List<File>> roots, Consumer<File[]> refresh) {
         this(roots, refresh, FileSystemRefresher::refreshTurnedOff, DELAY_MILLIS);
     }
 
-    FileSystemRefresher(Supplier<List<File>> roots, Consumer<File[]> refresh, BooleanSupplier disabled, long delayMillis) {
+    public FileSystemRefresher(Supplier<List<File>> roots, Consumer<File[]> refresh, BooleanSupplier disabled, long delayMillis) {
         this.roots = Objects.requireNonNull(roots, "roots");
         this.refresh = Objects.requireNonNull(refresh, "refresh");
         this.disabled = Objects.requireNonNull(disabled, "disabled");
@@ -86,7 +86,7 @@ final class FileSystemRefresher {
      * so it must return immediately - only the roots are read here, on the caller's thread, as they
      * live in an observable list the FX thread owns.
      */
-    void requestRefresh() {
+    public void requestRefresh() {
         if (isDisabled()) {
             return;
         }
@@ -171,7 +171,7 @@ final class FileSystemRefresher {
     }
 
     /** Stops accepting refreshes; the IDE is shutting down. */
-    void shutdown() {
+    public void shutdown() {
         executor.shutdownNow();
     }
 }

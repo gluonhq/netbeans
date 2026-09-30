@@ -1,4 +1,4 @@
-package com.gluonhq.netbeans.nbfx.launcher;
+package com.gluonhq.netbeans.nbfx.launcher.project;
 
 import java.io.File;
 import java.util.Arrays;
@@ -22,7 +22,7 @@ import java.util.stream.Collectors;
  * {@code versioning.unversionedFolders} system property, so naming the filesystem roots excludes
  * everything. To be removed when NetBeansFX gains VCS support.
  */
-final class VersioningOptOut {
+public final class VersioningOptOut {
 
     private static final Logger LOG = Logger.getLogger(VersioningOptOut.class.getName());
 
@@ -32,11 +32,11 @@ final class VersioningOptOut {
     }
 
     /** Excludes every filesystem root from version control, unless the property is already set. */
-    static void apply() {
+    public static void apply() {
         apply(File.listRoots());
     }
 
-    static void apply(File[] roots) {
+    public static void apply(File[] roots) {
         if (System.getProperty(UNVERSIONED_FOLDERS) != null) {
             // Started with an explicit list: whoever set it knows what they want scanned.
             return;

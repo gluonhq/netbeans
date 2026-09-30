@@ -1,9 +1,13 @@
-package com.gluonhq.netbeans.nbfx.launcher;
+package com.gluonhq.netbeans.nbfx.launcher.ui;
 
-import com.gluonhq.netbeans.nbfx.api.Command;
+import com.gluonhq.netbeans.nbfx.launcher.actions.ActionBars;
+import com.gluonhq.netbeans.nbfx.launcher.project.ProjectSwitcher;
+import com.gluonhq.netbeans.nbfx.launcher.session.CloseConfirmation;
+import com.gluonhq.netbeans.nbfx.launcher.session.DocumentCloser;
+
+import com.gluonhq.netbeans.nbfx.api.actions.Command;
 import java.util.HashMap;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -11,14 +15,18 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.logging.Logger;
 
 import com.gluonhq.netbeans.nbfx.api.ContentManager;
-import com.gluonhq.netbeans.nbfx.api.EditorContext;
-import com.gluonhq.netbeans.nbfx.api.EditorDocument;
-import com.gluonhq.netbeans.nbfx.api.FileTypes;
+import com.gluonhq.netbeans.nbfx.api.editor.EditorContext;
+import com.gluonhq.netbeans.nbfx.api.editor.EditorDocument;
+import com.gluonhq.netbeans.nbfx.api.file.FileTypes;
+import com.gluonhq.netbeans.nbfx.api.view.ViewProvider;
+import com.gluonhq.netbeans.nbfx.docking.DockArea;
+import com.gluonhq.netbeans.nbfx.docking.DropTarget;
 import com.gluonhq.netbeans.nbfx.file.actions.FileDragAndDrop;
 import javafx.application.Platform;
 import javafx.beans.InvalidationListener;
@@ -27,6 +35,8 @@ import javafx.beans.value.ObservableValue;
 import javafx.collections.ListChangeListener;
 import javafx.css.PseudoClass;
 import javafx.geometry.Bounds;
+import javafx.geometry.Point2D;
+import javafx.geometry.Side;
 import javafx.geometry.Point2D;
 import javafx.scene.Node;
 import javafx.scene.Scene;
@@ -55,11 +65,13 @@ import org.openide.util.Lookup;
 
 /**
  * A {@link TabPane} control with cross-window drag and drop, holding tabs whose content is either a
- * code editor or a project navigator (tree). All tab logic lives here:
+ * code editor or a view (a project navigator tree, a tool window...). All tab logic lives here:
  * <ul>
  *     <li>tabs can be reordered within their own pane,</li>
  *     <li>tabs can be detached to a new {@link Stage} when dropped outside their window,</li>
  *     <li>tabs can be moved to another existing pane (in any window),</li>
+ *     <li>tabs dropped near an edge of a docked pane (or of its whole column) split it, docking a new
+ *     pane on that side (see {@link DockArea}),</li>
  *     <li>selecting a tab moves keyboard focus onto its content (editor caret or tree),</li>
  *     <li>selecting an editor tab tracks it as the shared active document.</li>
  * </ul>
@@ -68,7 +80,7 @@ import org.openide.util.Lookup;
  * <p>Files dropped on a pane - dragged from a navigator tree or from another application - are
  * opened in an editor tab, wherever in the pane they land.
  */
-final class NbfxTabPane extends TabPane {
+public final class NbfxTabPane extends TabPane {
 
     private static final Logger LOG = Logger.getLogger(NbfxTabPane.class.getName());
 
@@ -77,13 +89,20 @@ final class NbfxTabPane extends TabPane {
      * dragged into any pane, so the role describes the <em>pane</em>, never the tabs it holds. It is
      * the only stable identity a pane has and is what layout persistence is keyed on.
      */
-    enum PaneRole {
-        /** The docked editor pane in the main window; exactly one exists. */
-        MAIN,
+    public enum PaneRole {
         /** The docked navigator pane in the main window; exactly one exists. */
         NAVIGATOR,
+        /** The docked editor pane in the main window; exactly one exists. */
+        MAIN,
+        /** A pane docked in the main window next to the permanent panes; exists only while it holds a tab. */
+        DOCKED,
         /** A pane living in its own detached window; any number may exist. */
-        DETACHED
+        DETACHED;
+
+        /** Whether a pane with this role exists for the whole session, even empty. */
+        public boolean isPermanent() {
+            return this == MAIN || this == NAVIGATOR;
+        }
     }
 
     /** Custom drag board data format used to identify internal tab drags. */
@@ -93,21 +112,21 @@ final class NbfxTabPane extends TabPane {
             System.getProperty("os.name", "").toLowerCase().contains("mac");
 
     /** Keyboard modifier symbols, matching the platform's menu accelerators. */
-    static final String SYM_SHIFT = MAC ? "\u21E7" : "Shift+";
-    static final String SYM_CMD = MAC ? "\u2318" : "Ctrl+";
-    static final String SYM_OPT = MAC ? "\u2325" : "Alt+";
+    public static final String SYM_SHIFT = MAC ? "\u21E7" : "Shift+";
+    public static final String SYM_CMD = MAC ? "\u2318" : "Ctrl+";
+    public static final String SYM_OPT = MAC ? "\u2325" : "Alt+";
 
     /** Key under which each tab stores its {@link EditorDocument} in {@code Tab.getProperties()}. */
     private static final String DOCUMENT_KEY = "nbfx.editorDocument";
 
-    /** Key under which a navigator tab stores its stable provider identifier for persistence. */
-    private static final String NAVIGATOR_ID_KEY = "nbfx.navigatorId";
+    /** Key under which a view tab stores its stable {@code ViewProvider} identifier for persistence. */
+    private static final String VIEW_ID_KEY = "nbfx.viewId";
 
     private static final String STYLESHEET = Objects.requireNonNull(
-            NbfxTabPane.class.getResource("styles.css")).toExternalForm();
+            NbfxTabPane.class.getResource("/com/gluonhq/netbeans/nbfx/launcher/styles.css")).toExternalForm();
     private static final String TAB_PANE_CLASS = "nbfx-tab-pane";
     private static final String TAB_HEADER_CLASS = "nbfx-tab-header";
-    private static final PseudoClass FOCUS_WITH_IN_TAB_PANE = PseudoClass.getPseudoClass("focus-in-tabpane");
+    private static final PseudoClass DOCK_FOCUSED = PseudoClass.getPseudoClass("dock-focused");
 
     private static final double DETACHED_WIDTH = 900;
     private static final double DETACHED_HEIGHT = 650;
@@ -141,7 +160,7 @@ final class NbfxTabPane extends TabPane {
 
     /** Bridges a detached window's reveal shortcut to the launcher's navigator (which lives only in the main window). */
     @FunctionalInterface
-    interface NavigatorRevealer {
+    public interface NavigatorRevealer {
         void reveal(FileObject file, int index);
     }
 
@@ -166,12 +185,12 @@ final class NbfxTabPane extends TabPane {
     private static TabPane lastFocusedPane;
 
     /** Creates a detached-window pane; see {@link #NbfxTabPane(PaneRole)}. */
-    NbfxTabPane() {
+    public NbfxTabPane() {
         this(PaneRole.DETACHED);
     }
 
     /** Creates a new pane with cross-pane drag and drop features and focus/active-document wiring. */
-    NbfxTabPane(PaneRole role) {
+    public NbfxTabPane(PaneRole role) {
         this.role = Objects.requireNonNull(role);
         setTabClosingPolicy(TabPane.TabClosingPolicy.ALL_TABS);
         getStyleClass().add(TAB_PANE_CLASS);
@@ -189,7 +208,7 @@ final class NbfxTabPane extends TabPane {
     }
 
     /** Returns an optional with the {@code tab} that holds the {@code fileObject}, or empty if not found. */
-    static Optional<Tab> findTab(FileObject fileObject) {
+    public static Optional<Tab> findTab(FileObject fileObject) {
         for (TabPane tabPane : TAB_PANES) {
             for (Tab tab : tabPane.getTabs()) {
                 if (Objects.requireNonNull(fileObject).equals(tab.getUserData())) {
@@ -200,59 +219,135 @@ final class NbfxTabPane extends TabPane {
         return Optional.empty();
     }
 
-    /** Selects the given {@code tab} and moves its window to the front. */
-    static void selectTabAndMoveToFront(Tab tab) {
-        Platform.runLater(() -> selectTabAndMoveToFront(tab.getTabPane(), tab));
+    /** The tab of {@code document} in any pane (main or detached), or empty if it is not open. */
+    public static Optional<Tab> findTab(EditorDocument document) {
+        for (TabPane tabPane : TAB_PANES) {
+            for (Tab tab : tabPane.getTabs()) {
+                if (documentOf(tab) == document) {
+                    return Optional.of(tab);
+                }
+            }
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * The pane a newly opened editor joins: the pane of the active document, so files keep opening
+     * where the user is editing (as in NetBeans, where a file opens in the active editor mode);
+     * failing that, {@code mainPane} - unless it is hidden for being empty, in which case the first
+     * docked pane holding an editor, so the editors are not split over a reappearing pane.
+     */
+    public static TabPane editorHome(TabPane mainPane, EditorContext context) {
+        return editorHome(mainPane, context, false);
+    }
+
+    /**
+     * Where an editor docks back into the main window from a detached one: as {@link #editorHome},
+     * but never a detached pane - the active document is the very tab being docked, and its pane is
+     * where it is leaving.
+     */
+    public static TabPane editorDockHome(TabPane mainPane, EditorContext context) {
+        return editorHome(mainPane, context, true);
+    }
+
+    private static TabPane editorHome(TabPane mainPane, EditorContext context, boolean dockedOnly) {
+        EditorDocument active = context == null ? null : context.getActiveDocument();
+        if (active != null) {
+            Optional<Tab> tab = findTab(active);
+            TabPane pane = tab.map(Tab::getTabPane).orElse(null);
+            if (pane != null && TAB_PANES.contains(pane) && (!dockedOnly || roleOf(pane) != PaneRole.DETACHED)) {
+                return pane;
+            }
+        }
+        DockArea<TabPane> area = Docking.area();
+        if (area != null && area.isPrimaryHidden(mainPane)) {
+            for (TabPane pane : area.leaves()) {
+                if (roleOf(pane) == PaneRole.DOCKED && !documentsOf(pane).isEmpty()) {
+                    return pane;
+                }
+            }
+        }
+        return mainPane;
+    }
+
+    /**
+     * Selects the given {@code tab}, moves its window to the front and focuses its content. The
+     * focus is requested explicitly: when the tab is already the selected one of its pane (a file
+     * reopened from the navigator while it shows in another pane), selecting it fires no selection
+     * change, so nothing else would move the caret there.
+     */
+    public static void selectTabAndMoveToFront(Tab tab) {
+        Platform.runLater(() -> {
+            if (tab.getTabPane() == null) {
+                return;
+            }
+            selectTabAndMoveToFront(tab.getTabPane(), tab);
+            focusDocument(tab);
+        });
+    }
+
+    /** The title shown in {@code tab}'s header: its label graphic's text, or its plain text. */
+    public static String titleOf(Tab tab) {
+        return tab.getGraphic() instanceof Label label ? label.getText() : tab.getText();
     }
 
     /** Associates an {@link EditorDocument} with a {@code tab}. */
-    static void setDocument(Tab tab, EditorDocument document) {
+    public static void setDocument(Tab tab, EditorDocument document) {
         tab.getProperties().put(DOCUMENT_KEY, document);
     }
 
     /** Returns the {@link EditorDocument} associated with {@code tab}, or {@code null} if none. */
-    static EditorDocument documentOf(Tab tab) {
+    public static EditorDocument documentOf(Tab tab) {
         return tab == null ? null : (EditorDocument) tab.getProperties().get(DOCUMENT_KEY);
     }
 
-    /** Associates a stable navigator provider id with {@code tab} (for order/selection persistence). */
-    static void setNavigatorId(Tab tab, String id) {
-        tab.getProperties().put(NAVIGATOR_ID_KEY, id);
+    /** Associates a stable view provider id with {@code tab} (for order/selection persistence). */
+    public static void setViewId(Tab tab, String id) {
+        tab.getProperties().put(VIEW_ID_KEY, id);
     }
 
-    /** Returns the navigator provider id associated with {@code tab}, or {@code null} if none. */
-    static String navigatorId(Tab tab) {
-        return tab == null ? null : (String) tab.getProperties().get(NAVIGATOR_ID_KEY);
+    /** Returns the view provider id associated with {@code tab}, or {@code null} if none. */
+    public static String viewId(Tab tab) {
+        return tab == null ? null : (String) tab.getProperties().get(VIEW_ID_KEY);
     }
 
     /** Requests focus on {@code tabPane}'s selected tab content (editor caret or tree), if any. */
-    static void focusSelectedTab(TabPane tabPane) {
+    public static void focusSelectedTab(TabPane tabPane) {
         if (tabPane != null) {
             focusDocument(tabPane.getSelectionModel().getSelectedItem());
         }
     }
 
     /**
-     * Restores the default docking layout: moves every tab out of the detached windows back into
-     * their home pane (editor tabs into the {@link PaneRole#MAIN} pane, navigator tabs into the
-     * {@link PaneRole#NAVIGATOR} one), which empties and closes the detached windows via the
-     * existing pane listeners.
+     * Restores the default docking layout: moves every tab out of the detached windows and the docked
+     * panes back into its home pane - {@code homeOf} decides which - which empties and closes the
+     * detached windows, and removes the docked panes, via the existing pane listeners.
+     *
+     * @param homeOf the pane each tab belongs in by default; a tab it maps to {@code null} is left alone
      */
-    static void redockAll(TabPane editorHome, TabPane navigatorHome) {
+    public static void redockAll(Function<Tab, TabPane> homeOf) {
         for (TabPane pane : List.copyOf(TAB_PANES)) {
-            if (pane == editorHome || pane == navigatorHome) {
+            if (roleOf(pane).isPermanent()) {
                 continue;
             }
             for (Tab tab : List.copyOf(pane.getTabs())) {
-                pane.getTabs().remove(tab);
-                attachTab(documentOf(tab) != null ? editorHome : navigatorHome, tab);
+                TabPane home = homeOf.apply(tab);
+                if (home != null) {
+                    pane.getTabs().remove(tab);
+                    attachTab(home, tab);
+                }
             }
         }
     }
 
     /** Adds {@code tab} to {@code tabPane} (at the end) and sets its drag handlers up. */
-    static void attachTab(TabPane tabPane, Tab tab) {
+    public static void attachTab(TabPane tabPane, Tab tab) {
         attachTabAtIndex(tabPane, tab, -1);
+    }
+
+    /** Adds {@code tab} to {@code tabPane} at {@code index}, selects it and makes it draggable. */
+    public static void attachTabAt(TabPane tabPane, Tab tab, int index) {
+        attachTabAtIndex(tabPane, tab, Math.clamp(index, 0, tabPane.getTabs().size()));
     }
 
     /**
@@ -260,7 +355,7 @@ final class NbfxTabPane extends TabPane {
      * Shift closes all documents, Alt/Option closes the other documents. Returns {@code true} (having
      * consumed {@code event} to cancel the single-tab close) when a modifier action was taken.
      */
-    static boolean handleEditorCloseModifiers(javafx.event.Event event, EditorDocument document) {
+    public static boolean handleEditorCloseModifiers(javafx.event.Event event, EditorDocument document) {
         if (lastPressShift) {
             event.consume();
             DocumentCloser.closeAllDocuments();
@@ -279,7 +374,7 @@ final class NbfxTabPane extends TabPane {
      * built lazily once the tab's header is shown, so installation waits until the tab's graphic is
      * attached to a scene and then retries over a few pulses until the button node exists.
      */
-    static void installCloseButtonTooltip(Tab tab, String text) {
+    public static void installCloseButtonTooltip(Tab tab, String text) {
         Node graphic = tab.getGraphic();
         if (graphic == null) {
             return;
@@ -300,7 +395,7 @@ final class NbfxTabPane extends TabPane {
      * Installs {@code text} as the tooltip of {@code tab}'s label (graphic) only, so it does not
      * cover the close button, which carries its own tooltip.
      */
-    static void installTabLabelTooltip(Tab tab, String text) {
+    public static void installTabLabelTooltip(Tab tab, String text) {
         Node graphic = tab.getGraphic();
         if (graphic != null) {
             Tooltip.install(graphic, new Tooltip(text));
@@ -338,7 +433,7 @@ final class NbfxTabPane extends TabPane {
      * tabs in place. Removing the tabs unregisters their documents and lets detached windows close
      * once emptied, via the existing pane listeners.
      */
-    static void closeAllTabs() {
+    public static void closeAllTabs() {
         closeTabs(document -> true);
     }
 
@@ -347,7 +442,7 @@ final class NbfxTabPane extends TabPane {
      * detached), leaving navigator (non-editor) tabs in place. Removing the tabs unregisters their
      * documents and lets detached windows close once emptied, via the existing pane listeners.
      */
-    static void closeTabs(Predicate<EditorDocument> filter) {
+    public static void closeTabs(Predicate<EditorDocument> filter) {
         Platform.runLater(() -> {
             for (TabPane tabPane : List.copyOf(TAB_PANES)) {
                 tabPane.getTabs().removeIf(tab -> {
@@ -359,7 +454,7 @@ final class NbfxTabPane extends TabPane {
     }
 
     /** Every open editor document, in pane and tab order. */
-    static List<EditorDocument> allDocuments() {
+    public static List<EditorDocument> allDocuments() {
         List<EditorDocument> documents = new ArrayList<>();
         for (TabPane tabPane : TAB_PANES) {
             documents.addAll(documentsOf(tabPane));
@@ -371,7 +466,7 @@ final class NbfxTabPane extends TabPane {
      * Closes a single {@code tab} by removing it from its pane. The pane listeners then unregister
      * its document and close the owning detached window if it becomes empty.
      */
-    static void closeTab(Tab tab) {
+    public static void closeTab(Tab tab) {
         Platform.runLater(() -> {
             TabPane pane = tab.getTabPane();
             if (pane != null) {
@@ -431,7 +526,7 @@ final class NbfxTabPane extends TabPane {
         });
     }
 
-    private static void setActiveDocument(EditorDocument document) {
+    static void setActiveDocument(EditorDocument document) {
         EditorContext context = editorContext();
         if (context != null) {
             context.setActiveDocument(document);
@@ -446,7 +541,7 @@ final class NbfxTabPane extends TabPane {
         if (selectedTab == null) {
             setActiveDocument(null);
         } else {
-            EditorDocument document = documentOf(selectedTab);
+            EditorDocument document = EditorSplit.focusedDocumentOf(selectedTab);
             if (document != null) {
                 setActiveDocument(document);
             }
@@ -459,11 +554,11 @@ final class NbfxTabPane extends TabPane {
      * its content node directly.
      */
     /** Focuses the content of {@code tab} (an editor through its document, so its caret shows). */
-    static void focusDocument(Tab tab) {
+    public static void focusDocument(Tab tab) {
         if (tab == null) {
             return;
         }
-        EditorDocument document = documentOf(tab);
+        EditorDocument document = EditorSplit.focusedDocumentOf(tab);
         if (document != null) {
             Platform.runLater(document::requestFocus);
         } else if (tab.getContent() != null) {
@@ -476,6 +571,15 @@ final class NbfxTabPane extends TabPane {
         if (isTabAttached(tab)) {
             return;
         }
+        String viewId = viewId(tab);
+        if (viewId != null) {
+            for (ViewProvider view : Lookup.getDefault().lookupAll(ViewProvider.class)) {
+                if (viewId.equals(view.getId())) {
+                    view.viewClosed();
+                }
+            }
+        }
+        EditorSplit.dispose(tab);
         EditorDocument document = documentOf(tab);
         EditorContext context = editorContext();
         if (document != null && context != null) {
@@ -496,34 +600,83 @@ final class NbfxTabPane extends TabPane {
         return Lookup.getDefault().lookup(EditorContext.class);
     }
 
+    /**
+     * Tab-drag handlers are event <em>filters</em>: the pane's content (an editor accepting text
+     * drops, a tree accepting files) must not swallow the gesture, since the split zones lie over it.
+     */
     private static void addTabPaneDragHandlers(TabPane tabPane) {
         addFileDropHandlers(tabPane);
-        tabPane.setOnDragOver(e -> {
+        tabPane.addEventFilter(DragEvent.DRAG_OVER, e -> {
             draggedTab(e.getDragboard()).ifPresent(dragged -> {
                 e.acceptTransferModes(TransferMode.MOVE);
-                TabDropIndicator.show(tabPane, e.getX(), dragged);
+                DropTarget target = dropTargetOf(tabPane, dragged, e);
+                if (target == null) {
+                    TabDropIndicator.show(tabPane, e.getX(), dragged);
+                } else {
+                    TabDropIndicator.showSplit(tabPane, target);
+                }
+                e.consume();
             });
-            e.consume();
-        });
-        tabPane.setOnDragEntered(e -> {
-            draggedTab(e.getDragboard()).ifPresent(dragged ->
-                TabDropIndicator.show(tabPane, e.getX(), dragged));
-            e.consume();
         });
         tabPane.setOnDragExited(e -> {
             TabDropIndicator.hide(tabPane);
             e.consume();
         });
-        tabPane.setOnDragDropped(e -> {
+        tabPane.addEventFilter(DragEvent.DRAG_DROPPED, e -> {
             boolean success = draggedTab(e.getDragboard()).map(dragged -> {
-                int dropIndex = TabDropIndicator.getDropIndex(tabPane, e.getX());
-                applyDrop(tabPane, dragged, dropIndex);
+                DropTarget<TabPane> target = dropTargetOf(tabPane, dragged, e);
+                if (target == null) {
+                    int dropIndex = TabDropIndicator.getDropIndex(tabPane, e.getX());
+                    applyDrop(tabPane, dragged, dropIndex);
+                } else {
+                    TabDropIndicator.hide(tabPane);
+                    selectTabAndMoveToFront(dock(dragged, target), dragged);
+                }
                 return true;
             }).orElse(false);
             e.setDropCompleted(success);
             TabDropIndicator.hide(tabPane);
             e.consume();
         });
+    }
+
+    /**
+     * Where {@code event} would dock {@code dragged} in a new pane next to {@code tabPane} or along
+     * the dock area (see {@link DockArea#dropTargetAt}), or {@code null} where it would join the
+     * pane's tabs: everywhere on a detached pane, which is not split, and for a pane's only tab dragged
+     * within its own pane, which has nowhere new to go.
+     */
+    private static DropTarget<TabPane> dropTargetOf(TabPane tabPane, Tab dragged, DragEvent event) {
+        DockArea<TabPane> area = Docking.area();
+        if (area == null || !area.contains(tabPane)
+                || (dragged.getTabPane() == tabPane && tabPane.getTabs().size() == 1)) {
+            return null;
+        }
+        return area.dropTargetAt(tabPane, event.getSceneX(), event.getSceneY());
+    }
+
+    /**
+     * Docks {@code tab} at {@code target} in the application's area, moving it out of the pane that
+     * holds it into a new pane - or, when it is the only tab of a pane of the area, moving that pane
+     * itself there, so a permanent pane keeps its place in the tree (rather than hiding while a
+     * docked pane takes over) and a docked one is not rebuilt.
+     *
+     * @return the pane now holding the tab
+     */
+    static TabPane dock(Tab tab, DropTarget<TabPane> target) {
+        DockArea<TabPane> area = Docking.area();
+        area.hideDropLine();
+        TabPane source = tab.getTabPane();
+        if (source != null && area.contains(source) && source.getTabs().size() == 1) {
+            area.relocate(source, target);
+            return source;
+        }
+        if (source != null) {
+            source.getTabs().remove(tab);
+        }
+        TabPane created = area.split(target);
+        moveTab(created, tab, 0);
+        return created;
     }
 
     /**
@@ -581,7 +734,7 @@ final class NbfxTabPane extends TabPane {
         }
         Platform.runLater(() -> findTab(file).ifPresent(tab -> {
             if (tab.getTabPane() != tabPane) {
-                moveTab(tabPane, tab, tabPane.getTabs().size());
+              moveTab(tabPane, tab, tabPane.getTabs().size());
                 selectTabAndMoveToFront(tabPane, tab);
             }
         }));
@@ -722,21 +875,19 @@ final class NbfxTabPane extends TabPane {
     }
 
     private static void detachTabToNewWindow(Tab tab, Point2D screenLocation) {
-        if (tab.getGraphic() instanceof Label label) {
-            LOG.info(() -> "Detaching tab [" + label.getText() + "] to a new window");
-        }
+        detachTabToWindowAt(tab, screenLocation.getX() - DETACHED_OFFSET_X, screenLocation.getY() - DETACHED_OFFSET_Y);
+    }
+
+    /** Moves {@code tab} into a new detached window whose top-left corner is at screen {@code (x, y)}. */
+    static void detachTabToWindowAt(Tab tab, double x, double y) {
+        LOG.info(() -> "Detaching tab [" + titleOf(tab) + "] to a new window");
         TabPane source = tab.getTabPane();
         if (source != null) {
             source.getTabs().remove(tab);
         }
-
         TabPane newPane = new NbfxTabPane();
         attachTab(newPane, tab);
-
-        Stage stage = createDetachedStage(newPane,
-                screenLocation.getX() - DETACHED_OFFSET_X,
-                screenLocation.getY() - DETACHED_OFFSET_Y,
-                DETACHED_WIDTH, DETACHED_HEIGHT);
+        Stage stage = createDetachedStage(newPane, x, y, DETACHED_WIDTH, DETACHED_HEIGHT);
         stage.show();
     }
 
@@ -744,7 +895,7 @@ final class NbfxTabPane extends TabPane {
      * Recreates a detached window at the given bounds holding {@code tabs} (moved out of their
      * current panes, in order), selecting {@code activeTab}.
      */
-    static TabPane openDetachedWindow(List<Tab> tabs, Tab activeTab,
+    public static TabPane openDetachedWindow(List<Tab> tabs, Tab activeTab,
                                       double x, double y, double width, double height) {
         if (tabs == null || tabs.isEmpty()) {
             return null;
@@ -755,7 +906,7 @@ final class NbfxTabPane extends TabPane {
             if (source != null) {
                 source.getTabs().remove(tab);
             }
-            attachTab(newPane, tab);
+          attachTab(newPane, tab);
         }
         Stage stage = createDetachedStage(newPane, x, y, width, height);
         if (activeTab != null) {
@@ -773,12 +924,7 @@ final class NbfxTabPane extends TabPane {
             if (newTab == null) {
                 return;
             }
-            if (newTab.getUserData() instanceof FileObject fo) {
-                stage.setTitle(fo.getNameExt());
-            } else if (newTab.getGraphic() instanceof Label label) {
-                // Navigator tabs carry no FileObject; fall back to their header text.
-                stage.setTitle(label.getText());
-            }
+            stage.setTitle(newTab.getUserData() instanceof FileObject fo ? fo.getNameExt() : titleOf(newTab));
         });
 
         BorderPane root = new BorderPane(newPane);
@@ -791,11 +937,11 @@ final class NbfxTabPane extends TabPane {
 
         stage.setScene(new Scene(root, width, height));
         // Shift+Cmd+1 / Shift+Cmd+2 reveal this window's selected editor file in the main navigator.
-        installNavigatorRevealShortcut(root.getScene(), () -> {
+      installNavigatorRevealShortcut(root.getScene(), () -> {
             EditorDocument document = documentOf(newPane.getSelectionModel().getSelectedItem());
             return document == null ? null : document.getFileObject();
         });
-        installProjectSwitchShortcut(root.getScene());
+      installProjectSwitchShortcut(root.getScene());
         stage.setX(x);
         stage.setY(y);
         stage.setOnCloseRequest(event -> {
@@ -804,23 +950,47 @@ final class NbfxTabPane extends TabPane {
             }
         });
         stage.focusedProperty().subscribe(focused ->
-                newPane.pseudoClassStateChanged(FOCUS_WITH_IN_TAB_PANE, focused));
+                newPane.pseudoClassStateChanged(DOCK_FOCUSED, focused));
         registerCloseOnLastTabRemoved(newPane, stage, scopedCommands);
         return stage;
     }
 
+    /** Where each tab belongs by default (see {@link #setHomeResolver}); {@code null} until the launcher sets it. */
+    private static Function<Tab, TabPane> homeResolver;
+
+    /**
+     * Sets how the pane a tab belongs in by default is found - the editor pane for editors, the
+     * navigator pane or a view's default location for views - used when a tab is docked back from a
+     * detached window (the tab context menu's Dock / Dock Group).
+     */
+    public static void setHomeResolver(Function<Tab, TabPane> resolver) {
+        homeResolver = resolver;
+    }
+
+    /** The pane {@code tab} belongs in by default, or {@code null} if unknown. */
+    static TabPane homeOf(Tab tab) {
+        return homeResolver == null ? null : homeResolver.apply(tab);
+    }
+
     /** Sets the shared {@link ActionBars} used to build the menu bar and tool bars of each detached window. */
-    static void setActionBars(ActionBars bars) {
+    public static void setActionBars(ActionBars bars) {
         actionBars = bars;
     }
 
     /** Sets the hook used by detached editor windows to reveal their selected file in the main navigator. */
-    static void setNavigatorRevealer(NavigatorRevealer revealer) {
+    public static void setNavigatorRevealer(NavigatorRevealer revealer) {
         navigatorRevealer = revealer;
     }
 
+    /** Reveals {@code file} in the navigator view at {@code index} (0 = Projects, 1 = Files), if a revealer is set. */
+    static void revealInNavigator(FileObject file, int index) {
+        if (navigatorRevealer != null && file != null) {
+            navigatorRevealer.reveal(file, index);
+        }
+    }
+
     /** Sets the switcher driving the Next/Previous Project shortcut in every window. */
-    static void setProjectSwitcher(ProjectSwitcher switcher) {
+    public static void setProjectSwitcher(ProjectSwitcher switcher) {
         projectSwitcher = switcher;
     }
 
@@ -832,7 +1002,7 @@ final class NbfxTabPane extends TabPane {
      * the menu accelerator never ran. Filtering means the shortcut behaves the same wherever the
      * focus is, in the main window and in the detached editor windows alike.
      */
-    static void installProjectSwitchShortcut(Scene scene) {
+    public static void installProjectSwitchShortcut(Scene scene) {
         scene.addEventFilter(KeyEvent.KEY_PRESSED, event -> {
             if (projectSwitcher == null
                     || !event.isShortcutDown() || !event.isAltDown() || event.isShiftDown()) {
@@ -850,7 +1020,7 @@ final class NbfxTabPane extends TabPane {
     }
 
     /** See {@link #navigatorRevealInProgress}: set while a reveal is moving focus into the navigator. */
-    static void setNavigatorRevealInProgress(boolean inProgress) {
+    public static void setNavigatorRevealInProgress(boolean inProgress) {
         navigatorRevealInProgress = inProgress;
     }
 
@@ -860,7 +1030,7 @@ final class NbfxTabPane extends TabPane {
      * window owning the scene), so the same handler serves both the main window and detached windows.
      * A capturing filter is used so the shortcut fires even when the editor or tree has focus.
      */
-    static void installNavigatorRevealShortcut(Scene scene, Supplier<FileObject> fileSupplier) {
+    public static void installNavigatorRevealShortcut(Scene scene, Supplier<FileObject> fileSupplier) {
         scene.addEventFilter(KeyEvent.KEY_PRESSED, event -> {
             if (navigatorRevealer == null
                     || !event.isShortcutDown() || !event.isShiftDown() || event.isAltDown()) {
@@ -879,7 +1049,7 @@ final class NbfxTabPane extends TabPane {
     }
 
     /** All TabPanes tracked by this class (main pane first, then every detached window's pane). */
-    static List<TabPane> tabPanes() {
+    public static List<TabPane> tabPanes() {
         return List.copyOf(TAB_PANES);
     }
 
@@ -887,12 +1057,12 @@ final class NbfxTabPane extends TabPane {
      * The role of {@code pane}. Panes not created by this class are reported as
      * {@link PaneRole#DETACHED}, which cannot happen today (every pane is an {@code NbfxTabPane}).
      */
-    static PaneRole roleOf(TabPane pane) {
+    public static PaneRole roleOf(TabPane pane) {
         return pane instanceof NbfxTabPane nbfx ? nbfx.role : PaneRole.DETACHED;
     }
 
     /** The single pane playing {@code role}, or {@code null} if it does not exist (yet). */
-    static TabPane paneWithRole(PaneRole role) {
+    public static TabPane paneWithRole(PaneRole role) {
         for (TabPane pane : TAB_PANES) {
             if (roleOf(pane) == role) {
                 return pane;
@@ -902,21 +1072,37 @@ final class NbfxTabPane extends TabPane {
     }
 
     /**
-     * Every pane ordered {@link PaneRole#MAIN}, {@link PaneRole#NAVIGATOR}, then the detached panes
-     * in creation order. Layout persistence relies on this order, since detached windows have no
-     * identity beyond their position in the list.
+     * Every pane in layout order: the dock area's panes in the depth-first order of its
+     * {@link DockArea#leaves()}, then any permanent pane hidden for being empty, then the detached
+     * panes in creation order. Layout persistence relies on this order, since docked panes have no
+     * identity beyond their position in the area's {@link com.gluonhq.netbeans.nbfx.docking.DockTree} and detached windows none beyond
+     * their position in the list.
      */
-    static List<TabPane> panesByRole() {
-        List<TabPane> panes = new ArrayList<>(TAB_PANES);
-        panes.sort(Comparator.comparingInt(pane -> roleOf(pane).ordinal()));
+    public static List<TabPane> panesByRole() {
+        List<TabPane> panes = new ArrayList<>();
+        DockArea<TabPane> area = Docking.area();
+        if (area != null) {
+            panes.addAll(area.leaves());
+        }
+        for (PaneRole role : List.of(PaneRole.NAVIGATOR, PaneRole.MAIN)) {
+            TabPane pane = paneWithRole(role);
+            if (pane != null && !panes.contains(pane)) {
+                panes.add(pane);
+            }
+        }
+        for (TabPane pane : TAB_PANES) {
+            if (!panes.contains(pane)) {
+                panes.add(pane);
+            }
+        }
         return panes;
     }
 
-    /** Returns the navigator tab whose provider id is {@code navigatorId}, searching every pane. */
-    static Optional<Tab> findNavigatorTab(String navigatorId) {
+    /** Returns the view tab whose provider id is {@code viewId}, searching every pane. */
+    public static Optional<Tab> findViewTab(String viewId) {
         for (TabPane pane : TAB_PANES) {
             for (Tab tab : pane.getTabs()) {
-                if (Objects.requireNonNull(navigatorId).equals(navigatorId(tab))) {
+                if (Objects.requireNonNull(viewId).equals(viewId(tab))) {
                     return Optional.of(tab);
                 }
             }
@@ -925,11 +1111,23 @@ final class NbfxTabPane extends TabPane {
     }
 
     /**
+     * Forgets a pane that is gone from the scene graph (a docked pane removed once emptied), so it is
+     * no longer searched, persisted or restored focus to.
+     */
+    static void unregister(TabPane pane) {
+        TAB_PANES.remove(pane);
+        PANES_PENDING_CLOSE.remove(pane);
+        if (lastFocusedPane == pane) {
+            lastFocusedPane = null;
+        }
+    }
+
+    /**
      * Moves {@code tab} to position {@code index} of {@code target}, removing it from whichever pane
      * currently holds it. Unlike {@link #attachTab} this neither selects the tab nor fronts its
      * window, so a layout can be rebuilt without stealing focus.
      */
-    static void moveTab(TabPane target, Tab tab, int index) {
+    public static void moveTab(TabPane target, Tab tab, int index) {
         TabPane source = tab.getTabPane();
         if (source != null) {
             source.getTabs().remove(tab);
@@ -939,7 +1137,7 @@ final class NbfxTabPane extends TabPane {
     }
 
     /** Returns the {@link Stage} showing {@code pane}, or {@code null} if it is not in a Stage. */
-    static Stage stageOf(TabPane pane) {
+    public static Stage stageOf(TabPane pane) {
         if (pane != null && pane.getScene() != null
                 && pane.getScene().getWindow() instanceof Stage stage) {
             return stage;
@@ -948,7 +1146,7 @@ final class NbfxTabPane extends TabPane {
     }
 
     /** Returns the {@link EditorDocument}s held by the tabs of {@code tabPane}, in order. */
-    static List<EditorDocument> documentsOf(TabPane tabPane) {
+    public static List<EditorDocument> documentsOf(TabPane tabPane) {
         List<EditorDocument> documents = new ArrayList<>();
         for (Tab tab : tabPane.getTabs()) {
             EditorDocument document = documentOf(tab);
@@ -1023,12 +1221,15 @@ final class NbfxTabPane extends TabPane {
     /**
      * Records {@code tabPane} as the last focused one whenever focus enters it or any of its
      * content, so the layout can be persisted with the pane that was active - and the window that
-     * held it - and restore both.
+     * held it - and restore both. The pane's selected editor becomes the active document as well:
+     * clicking into an editor moves the focus without selecting anything, yet the user is now
+     * working there, and files opened next should join that pane.
      */
     private static void trackFocus(TabPane tabPane) {
         tabPane.focusWithinProperty().subscribe(focused -> {
             if (focused) {
                 lastFocusedPane = tabPane;
+                trackActiveDocument(tabPane.getSelectionModel().getSelectedItem());
                 LOG.fine(() -> "Focus entered the " + roleOf(tabPane) + " pane");
             }
         });
@@ -1048,7 +1249,7 @@ final class NbfxTabPane extends TabPane {
      * panes of a background one; {@link #lastFocusedPane} only breaks ties between windows that are
      * all deactivated (the state during shutdown on some platforms).
      */
-    static TabPane focusedPane() {
+    public static TabPane focusedPane() {
         TabPane owner = null;
         for (TabPane pane : TAB_PANES) {
             if (!holdsFocusOwner(pane)) {
@@ -1087,7 +1288,7 @@ final class NbfxTabPane extends TabPane {
     }
 
     /** Per-pane focus state, logged when persisting the layout to explain the pane that was picked. */
-    static String describeFocus() {
+    public static String describeFocus() {
         StringBuilder text = new StringBuilder("last focused = ")
                 .append(lastFocusedPane == null ? "none" : roleOf(lastFocusedPane));
         for (TabPane pane : TAB_PANES) {

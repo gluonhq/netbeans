@@ -1,6 +1,7 @@
-package com.gluonhq.netbeans.nbfx.launcher;
+package com.gluonhq.netbeans.nbfx.launcher.session;
 
-import com.gluonhq.netbeans.nbfx.api.EditorDocument;
+import com.gluonhq.netbeans.nbfx.api.editor.EditorDocument;
+import com.gluonhq.netbeans.nbfx.launcher.context.EditorContexts;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -18,7 +19,7 @@ import org.openide.util.NbBundle;
  * modified files. Saving never fails silently: a save error is surfaced and aborts the close so
  * the user cannot lose data unknowingly.
  */
-final class CloseConfirmation {
+public final class CloseConfirmation {
 
     private static final ButtonType SAVE =
             new ButtonType(message("CloseConfirmation.button.save"), ButtonBar.ButtonData.YES);
@@ -36,10 +37,8 @@ final class CloseConfirmation {
      * @param documents the documents being closed (unmodified ones are ignored)
      * @return {@code true} if the caller may proceed to close, {@code false} to abort
      */
-    static boolean confirmClose(List<EditorDocument> documents) {
-        List<EditorDocument> unsaved = documents.stream()
-                .filter(EditorDocument::isModified)
-                .toList();
+    public static boolean confirmClose(List<EditorDocument> documents) {
+        List<EditorDocument> unsaved = unsavedOf(documents);
         if (unsaved.isEmpty()) {
             return true;
         }
@@ -47,8 +46,15 @@ final class CloseConfirmation {
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
         alert.setTitle(message("CloseConfirmation.title"));
         alert.setHeaderText(headerText(unsaved));
-        alert.setContentText(message("CloseConfirmation.content"));
-        alert.getButtonTypes().setAll(SAVE, DISCARD, CANCEL);
+        // A locked (non-editable) document cannot be saved
+        boolean saveAllowed = saveAllowed(unsaved);
+        alert.setContentText(message(saveAllowed
+                ? "CloseConfirmation.content" : "CloseConfirmation.content.locked"));
+        if (saveAllowed) {
+            alert.getButtonTypes().setAll(SAVE, DISCARD, CANCEL);
+        } else {
+            alert.getButtonTypes().setAll(DISCARD, CANCEL);
+        }
 
         ButtonType choice = alert.showAndWait().orElse(CANCEL);
         if (choice == DISCARD) {
@@ -58,6 +64,38 @@ final class CloseConfirmation {
             return saveAll(unsaved);
         }
         return false;
+    }
+
+    /**
+     * The documents of {@code closing} with unsaved changes that would be lost: one per shared content,
+     * and only when no clone of it stays open - closing one of several clones loses nothing, as in
+     * NetBeans, where only the last editor of a file asks to save.
+     */
+    static List<EditorDocument> unsavedOf(List<EditorDocument> closing) {
+        List<EditorDocument> unsaved = new ArrayList<>();
+        for (EditorDocument document : closing) {
+            if (!document.isModified()
+                    || unsaved.stream().anyMatch(document::sharesContentWith)
+                    || hasOpenCloneOutside(document, closing)) {
+                continue;
+            }
+            unsaved.add(document);
+        }
+        return unsaved;
+    }
+
+    private static boolean hasOpenCloneOutside(EditorDocument document, List<EditorDocument> closing) {
+        return EditorContexts.documentsSnapshot().stream()
+                .anyMatch(open -> open != document && document.sharesContentWith(open)
+                        && !closing.contains(open));
+    }
+
+    /**
+     * Whether Save may be offered for the given unsaved documents: a locked (non-editable)
+     * document cannot be saved, so Save is only allowed when every document accepts edits.
+     */
+    static boolean saveAllowed(List<EditorDocument> unsaved) {
+        return unsaved.stream().allMatch(d -> d.editableProperty().get());
     }
 
     private static String headerText(List<EditorDocument> unsaved) {

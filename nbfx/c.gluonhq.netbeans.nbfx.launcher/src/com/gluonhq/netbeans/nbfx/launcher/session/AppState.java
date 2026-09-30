@@ -1,15 +1,23 @@
-package com.gluonhq.netbeans.nbfx.launcher;
+package com.gluonhq.netbeans.nbfx.launcher.session;
 
-import com.gluonhq.netbeans.nbfx.api.EditorSettings;
+import com.gluonhq.netbeans.nbfx.docking.DockTree;
+import com.gluonhq.netbeans.nbfx.docking.DockTrees;
+import com.gluonhq.netbeans.nbfx.launcher.ui.NbfxTabPane;
+import com.gluonhq.netbeans.nbfx.launcher.ui.ToolBarContainer;
+
+import com.gluonhq.netbeans.nbfx.api.editor.EditorSettings;
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.prefs.Preferences;
+import javafx.geometry.Orientation;
 import javafx.geometry.Rectangle2D;
-import javafx.scene.control.SplitPane;
 import javafx.stage.Screen;
 import javafx.stage.Stage;
 import org.openide.util.NbPreferences;
@@ -24,7 +32,7 @@ import org.openide.util.NbPreferences;
  * can run from any thread (e.g. a JVM shutdown hook) without touching live
  * scene-graph nodes. {@code save()} is idempotent.</p>
  */
-final class AppState {
+public final class AppState {
 
     private static final Logger LOG = Logger.getLogger(AppState.class.getName());
 
@@ -33,10 +41,12 @@ final class AppState {
     private static final String WINDOW_WIDTH = "window.width";
     private static final String WINDOW_HEIGHT = "window.height";
     private static final String WINDOW_MAXIMIZED = "window.maximized";
-    private static final String SPLIT_DIVIDER = "split.divider.0";
+    /** Slack, in pixels, when checking whether a maximized stage still fills its screen. */
+    private static final double MAXIMIZED_TOLERANCE = 4;
     private static final String TOOLBARS = "toolbars.arrangement";
     private static final String TOOLBARS_HIDDEN = "toolbars.hidden";
     private static final String VIEW_SHOW_LINE_NUMBERS = "view.showLineNumbers";
+    private static final String VIEW_SHOW_BREADCRUMBS = "view.showBreadcrumbs";
     private static final String RECENT_PROJECTS = "project.recent";
     /** The projects that were open at exit, one path per line. */
     private static final String PROJECT_OPEN = "project.open";
@@ -64,10 +74,8 @@ final class AppState {
     private static final String[] EMPTY_LINES = new String[0];
 
     /** Default main-window size used when nothing is persisted. */
-    static final double DEFAULT_WIDTH = 1200;
-    static final double DEFAULT_HEIGHT = 800;
-    /** Default split-divider position (left navigator vs. editor) used on first run and by Reset Windows. */
-    static final double DEFAULT_DIVIDER = 0.22;
+    public static final double DEFAULT_WIDTH = 1200;
+    public static final double DEFAULT_HEIGHT = 800;
 
     /** Default detached-window size used when a persisted one is off-screen or invalid. */
     private static final double DEFAULT_DETACHED_WIDTH = 900;
@@ -82,17 +90,17 @@ final class AppState {
     private volatile double winX = Double.NaN, winY = Double.NaN;
     private volatile double winW = DEFAULT_WIDTH, winH = DEFAULT_HEIGHT;
     private volatile boolean winMax = false;
-    private volatile double dividerPos = Double.NaN;
     private volatile String toolbarArrangement = null;
     private volatile String toolbarHidden = null;
     private volatile boolean showLineNumbers = true;
+    private volatile boolean showBreadcrumbs = true;
     private final AtomicBoolean saved = new AtomicBoolean();
 
-    AppState() {
+    public AppState() {
         this(NbPreferences.forModule(AppState.class));
     }
 
-    AppState(Preferences prefs) {
+    public AppState(Preferences prefs) {
         this.prefs = prefs;
         migrateLegacySession();
     }
@@ -102,34 +110,60 @@ final class AppState {
     /**
      * Restores the persisted window bounds onto the stage (before it is shown)
      * and starts tracking further changes into the snapshot.
+     * <p>
+     * The maximized flag is not taken from {@link Stage#maximizedProperty()} alone: on macOS,
+     * un-zooming a window by dragging its edge or title only reports a plain resize / move, so the
+     * property stays {@code true} for good and every later size would be lost. A window counts as
+     * maximized only while it is flagged so <em>and</em> still fills its screen's visual bounds.
      */
-    void initWindow(Stage stage) {
+    public void initWindow(Stage stage) {
         restoreWindowBounds(stage);
-        stage.xProperty().subscribe(nv -> winX = nv.doubleValue());
-        stage.yProperty().subscribe(nv -> winY = nv.doubleValue());
-        stage.widthProperty().subscribe(nv -> winW = nv.doubleValue());
-        stage.heightProperty().subscribe(nv -> winH = nv.doubleValue());
-        stage.maximizedProperty().subscribe(nv -> winMax = nv);
+        stage.xProperty().subscribe(nv -> {
+            winX = nv.doubleValue();
+            updateMaximized(stage);
+        });
+        stage.yProperty().subscribe(nv -> {
+            winY = nv.doubleValue();
+            updateMaximized(stage);
+        });
+        stage.widthProperty().subscribe(nv -> {
+            winW = nv.doubleValue();
+            updateMaximized(stage);
+        });
+        stage.heightProperty().subscribe(nv -> {
+            winH = nv.doubleValue();
+            updateMaximized(stage);
+        });
+        stage.maximizedProperty().subscribe(nv -> updateMaximized(stage));
     }
 
-    /**
-     * Restores the persisted divider position and starts tracking it. Must be
-     * called after the stage is shown, since the divider is only meaningful
-     * once the {@link SplitPane} has been laid out.
-     */
-    void initDivider(SplitPane splitPane) {
-        restoreDivider(splitPane);
-        if (!splitPane.getDividers().isEmpty()) {
-            splitPane.getDividers().getFirst().positionProperty()
-                    .subscribe(nv -> dividerPos = nv.doubleValue());
+    private void updateMaximized(Stage stage) {
+        winMax = stage.isMaximized() && fillsScreen(stage);
+    }
+
+    /** Whether the stage covers (within a few pixels) the visual bounds of the screen it is on. */
+    private static boolean fillsScreen(Stage stage) {
+        double x = stage.getX();
+        double y = stage.getY();
+        double w = stage.getWidth();
+        double h = stage.getHeight();
+        if (Double.isNaN(x) || Double.isNaN(y) || Double.isNaN(w) || Double.isNaN(h)) {
+            return true; // not laid out yet: trust the flag
         }
+        List<Screen> screens = Screen.getScreensForRectangle(x, y, w, h);
+        if (screens.isEmpty()) {
+            return true;
+        }
+        Rectangle2D visual = screens.getFirst().getVisualBounds();
+        return w >= visual.getWidth() - MAXIMIZED_TOLERANCE
+                && h >= visual.getHeight() - MAXIMIZED_TOLERANCE;
     }
 
     /**
      * Restores the persisted tool-bar arrangement onto the container and starts
      * tracking further user reorderings into the snapshot.
      */
-    void initToolbars(ToolBarContainer toolBars) {
+    public void initToolbars(ToolBarContainer toolBars) {
         String stored = get(TOOLBARS, null);
         if (stored != null) {
             toolBars.applyArrangement(stored);
@@ -149,33 +183,33 @@ final class AppState {
      * are opened, so they pick up the stored value) and starts tracking further changes into the
      * snapshot. A {@code null} settings instance (none registered) is ignored.
      */
-    void initViewSettings(EditorSettings settings) {
+    public void initViewSettings(EditorSettings settings) {
         if (settings == null) {
             return;
         }
         settings.showLineNumbers().set(getBoolean(VIEW_SHOW_LINE_NUMBERS, true));
         showLineNumbers = settings.showLineNumbers().get();
         settings.showLineNumbers().subscribe(nv -> showLineNumbers = nv);
+        settings.showBreadcrumbs().set(getBoolean(VIEW_SHOW_BREADCRUMBS, true));
+        showBreadcrumbs = settings.showBreadcrumbs().get();
+        settings.showBreadcrumbs().subscribe(nv -> showBreadcrumbs = nv);
     }
 
     /**
      * Registers a JVM shutdown hook that persists the snapshot as a safety net
      * for exit paths that bypass the regular lifecycle.
      */
-    void installShutdownHook() {
+    public void installShutdownHook() {
         Runtime.getRuntime().addShutdownHook(new Thread(this::save, "nbfx-state-save"));
     }
 
     /** Persists the current snapshot. Idempotent and safe to call off the FX thread. */
-    void save() {
+    public void save() {
         if (!saved.compareAndSet(false, true)) {
             return;
         }
         try {
             saveWindowBounds(winX, winY, winW, winH, winMax);
-            if (!Double.isNaN(dividerPos)) {
-                saveDivider(dividerPos);
-            }
             if (toolbarArrangement != null) {
                 prefs.put(TOOLBARS, toolbarArrangement);
             }
@@ -183,6 +217,7 @@ final class AppState {
                 prefs.put(TOOLBARS_HIDDEN, toolbarHidden);
             }
             prefs.putBoolean(VIEW_SHOW_LINE_NUMBERS, showLineNumbers);
+            prefs.putBoolean(VIEW_SHOW_BREADCRUMBS, showBreadcrumbs);
             flush();
         } catch (RuntimeException ex) {
             LOG.log(Level.WARNING, "Failed to persist application state", ex);
@@ -234,33 +269,13 @@ final class AppState {
         flush();
     }
 
-    // --- Split divider ------------------------------------------------------
-
-    private void restoreDivider(SplitPane splitPane) {
-        if (splitPane.getDividers().isEmpty()) {
-            return;
-        }
-        double pos = getDouble(SPLIT_DIVIDER, DEFAULT_DIVIDER);
-        if (pos < 0.0 || pos > 1.0) {
-            pos = DEFAULT_DIVIDER;
-        }
-        splitPane.setDividerPosition(0, pos);
-    }
-
-    private void saveDivider(double position) {
-        if (position >= 0.0 && position <= 1.0) {
-            prefs.putDouble(SPLIT_DIVIDER, position);
-            flush();
-        }
-    }
-
     // --- Recent projects ----------------------------------------------------
 
     /** A recent project: its directory path and the resolved menu icon name (may be {@code null}). */
-    record RecentProject(String path, String iconName) {}
+    public record RecentProject(String path, String iconName) {}
 
     /** The recent projects, most-recent first. */
-    List<RecentProject> getRecentProjects() {
+    public List<RecentProject> getRecentProjects() {
         String raw = get(RECENT_PROJECTS, "");
         if (raw.isBlank()) {
             return List.of();
@@ -291,7 +306,7 @@ final class AppState {
      * The projects that were open when the application last exited, in the order they were opened.
      * Empty when none was open (or on first run).
      */
-    List<String> getOpenProjects() {
+    public List<String> getOpenProjects() {
         String raw = get(PROJECT_OPEN, "");
         if (raw.isBlank()) {
             return List.of();
@@ -306,7 +321,7 @@ final class AppState {
     }
 
     /** The path of the project that was selected when the application last exited, or {@code null}. */
-    String getSelectedProject() {
+    public String getSelectedProject() {
         String selected = get(PROJECT_SELECTED, "");
         return selected.isBlank() ? null : selected;
     }
@@ -316,7 +331,7 @@ final class AppState {
      * reopens exactly this session. Persisted immediately (rather than only at exit) so that a
      * project the user closed is not brought back by a crash.
      */
-    void setOpenProjects(List<String> paths, String selected) {
+    public void setOpenProjects(List<String> paths, String selected) {
         List<String> kept = paths == null ? List.of()
                 : paths.stream().filter(path -> path != null && !path.isBlank()).toList();
         if (kept.isEmpty()) {
@@ -337,7 +352,7 @@ final class AppState {
      * so a subsequent open starts fresh at the project root. The session layout is shared by every
      * project and is left alone. A {@code null} project is ignored.
      */
-    void clearProjectState(File project) {
+    public void clearProjectState(File project) {
         if (project == null) {
             return;
         }
@@ -348,7 +363,7 @@ final class AppState {
     }
 
     /** Records a project as the most recent, de-duplicating and bounding the list. */
-    void addRecentProject(String path, String iconName) {
+    public void addRecentProject(String path, String iconName) {
         if (path == null || path.isBlank()) {
             return;
         }
@@ -363,7 +378,7 @@ final class AppState {
     }
 
     /** Removes a project from the recent list (e.g. when its directory no longer exists). */
-    void removeRecentProject(String path) {
+    public void removeRecentProject(String path) {
         List<RecentProject> list = new ArrayList<>(getRecentProjects());
         if (list.removeIf(rp -> rp.path().equals(path))) {
             prefs.put(RECENT_PROJECTS, serialize(list));
@@ -371,7 +386,7 @@ final class AppState {
         }
     }
 
-    void clearRecentProjects() {
+    public void clearRecentProjects() {
         prefs.remove(RECENT_PROJECTS);
         flush();
     }
@@ -383,7 +398,7 @@ final class AppState {
      * Expansion is stored per project in a dedicated preferences child node, keyed by a stable
      * hash of the project path.
      */
-    List<String> getExpandedNodes(String projectPath) {
+    public List<String> getExpandedNodes(String projectPath) {
         String[] lines = projectLines(TREE_EXPANDED_NODE, projectPath, 1);
         List<String> list = new ArrayList<>();
         for (int i = 1; i < lines.length; i++) {
@@ -431,7 +446,7 @@ final class AppState {
     }
 
     /** The persisted selected-node identifier for {@code projectPath}, or {@code null} if none. */
-    String getSelectedNode(String projectPath) {
+    public String getSelectedNode(String projectPath) {
         String[] lines = projectLines(TREE_SELECTED_NODE, projectPath, 2);
         if (lines.length < 2 || lines[1].isBlank()) {
             return null;
@@ -519,28 +534,41 @@ final class AppState {
     // --- Window layout (panes + their tabs) ---------------------------------
 
     /** The kind of content a persisted tab holds. */
-    enum TabKind { EDITOR, NAVIGATOR }
+    public enum TabKind { EDITOR, VIEW }
 
     /**
      * A persisted tab. For {@link TabKind#EDITOR} the {@code id} is an absolute file path and the
-     * scroll/caret fields are meaningful; for {@link TabKind#NAVIGATOR} the {@code id} is the
+     * scroll/caret fields are meaningful; for {@link TabKind#VIEW} the {@code id} is the view
      * provider identifier and the remaining fields are unused.
      */
-    record TabEntry(TabKind kind, String id, int topParagraph, int caretParagraph, int caretColumn) {
+    public record TabEntry(TabKind kind, String id, int topParagraph, int caretParagraph, int caretColumn,
+                           SplitEntry split) {
 
-        static TabEntry navigator(String providerId) {
-            return new TabEntry(TabKind.NAVIGATOR, providerId, 0, 0, 0);
+        /** An entry without a split. */
+        public TabEntry(TabKind kind, String id, int topParagraph, int caretParagraph, int caretColumn) {
+            this(kind, id, topParagraph, caretParagraph, caretColumn, null);
+        }
+
+        static TabEntry view(String providerId) {
+            return new TabEntry(TabKind.VIEW, providerId, 0, 0, 0);
         }
     }
 
     /**
-     * A persisted pane: its {@link com.gluonhq.netbeans.nbfx.launcher.NbfxTabPane.PaneRole role},
+     * The split of a persisted editor tab (see {@link com.gluonhq.netbeans.nbfx.launcher.ui.EditorSplit}):
+     * its orientation and the scroll/caret of the editor in its second half.
+     */
+    public record SplitEntry(Orientation orientation, int topParagraph, int caretParagraph, int caretColumn) {
+    }
+
+    /**
+     * A persisted pane: its {@link com.gluonhq.netbeans.nbfx.launcher.ui.NbfxTabPane.PaneRole role},
      * its bounds (only meaningful, and only valid, for a detached pane), its tabs in order and the
      * index of the selected one ({@code -1} when the pane is empty).
      * <p>
      * Tabs of both kinds may appear in any pane, since the user can drag them freely between panes.
      */
-    record PaneLayout(NbfxTabPane.PaneRole role, double x, double y, double width, double height,
+    public record PaneLayout(NbfxTabPane.PaneRole role, double x, double y, double width, double height,
                       List<TabEntry> tabs, int activeIndex) {
 
         static PaneLayout docked(NbfxTabPane.PaneRole role, List<TabEntry> tabs, int activeIndex) {
@@ -553,7 +581,7 @@ final class AppState {
             List<TabEntry> kept = new ArrayList<>();
             int active = -1;
             for (int i = 0; i < tabs.size(); i++) {
-                if (tabs.get(i).kind() == TabKind.NAVIGATOR) {
+                if (tabs.get(i).kind() == TabKind.VIEW) {
                     if (i == activeIndex) {
                         active = kept.size();
                     }
@@ -566,18 +594,60 @@ final class AppState {
     }
 
     /**
-     * The full window layout: every pane, ordered main pane, navigator pane, then detached panes,
-     * and the index into {@code panes} of the pane that held focus ({@code -1} when unknown).
+     * The full window layout: every pane - the dock area's in the depth-first order of its
+     * {@link DockTree}, then any permanent pane hidden for being empty, then the detached panes -
+     * the index into {@code panes} of the pane that held focus ({@code -1} when unknown), and the
+     * shape of the dock area ({@code null} when unknown, in which case the docked panes are stacked).
+     * The tree's leaves are matched to the docked panes by {@link #leafPanes(DockTree)}.
      */
-    record Layout(List<PaneLayout> panes, int focusedIndex) {
+    public record Layout(List<PaneLayout> panes, int focusedIndex, DockTree dock) {
 
         static final Layout EMPTY = new Layout(List.of(), -1);
+
+        public Layout {
+            panes = List.copyOf(panes);
+        }
+
+        public Layout(List<PaneLayout> panes, int focusedIndex) {
+            this(panes, focusedIndex, null);
+        }
 
         Layout(List<PaneLayout> panes) {
             this(panes, -1);
         }
 
-        boolean isEmpty() {
+        /** The panes of the dock area (not detached), in the order they were persisted. */
+        public List<PaneLayout> dockedPanes() {
+            return panes.stream().filter(pane -> pane.role() != NbfxTabPane.PaneRole.DETACHED).toList();
+        }
+
+        /**
+         * The pane each leaf of {@code tree} stands for, in the tree's depth-first order: a permanent
+         * leaf's pane is the one playing its role, the docked leaves take the {@code DOCKED} panes in
+         * order. Returns {@code null} when the tree does not fit these panes: a permanent leaf with no
+         * pane, or a different number of docked leaves and panes.
+         */
+        public List<PaneLayout> leafPanes(DockTree tree) {
+            List<PaneLayout> docked = dockedPanes();
+            List<PaneLayout> spare = new ArrayList<>(
+                    docked.stream().filter(pane -> pane.role() == NbfxTabPane.PaneRole.DOCKED).toList());
+            List<PaneLayout> result = new ArrayList<>();
+            for (DockTree.Leaf leaf : tree.leaves()) {
+                PaneLayout pane;
+                if (leaf.isPrimary()) {
+                    pane = docked.stream().filter(p -> p.role().name().equals(leaf.primary())).findFirst().orElse(null);
+                } else {
+                    pane = spare.isEmpty() ? null : spare.removeFirst();
+                }
+                if (pane == null) {
+                    return null;
+                }
+                result.add(pane);
+            }
+            return spare.isEmpty() ? result : null;
+        }
+
+        public boolean isEmpty() {
             return panes.isEmpty();
         }
 
@@ -588,16 +658,17 @@ final class AppState {
 
         /**
          * This layout reduced to what can be applied before any project has loaded: editor tabs
-         * (whose files belong to the projects being reopened) are dropped, and detached panes left
-         * without any tab are dropped with them.
+         * (whose files belong to the projects being reopened) are dropped, and detached or bottom
+         * panes left without any tab are dropped with them.
          */
         Layout withoutEditors() {
             List<PaneLayout> kept = new ArrayList<>();
+            Set<PaneLayout> dropped = Collections.newSetFromMap(new IdentityHashMap<>());
             int focused = -1;
             for (int i = 0; i < panes.size(); i++) {
                 PaneLayout stripped = panes.get(i).withoutEditors();
-                if (stripped.tabs().isEmpty()
-                        && stripped.role() == NbfxTabPane.PaneRole.DETACHED) {
+                if (stripped.tabs().isEmpty() && !stripped.role().isPermanent()) {
+                    dropped.add(panes.get(i));
                     continue;
                 }
                 // Dropping panes shifts the positions the focus index refers to.
@@ -606,7 +677,13 @@ final class AppState {
                 }
                 kept.add(stripped);
             }
-            return new Layout(kept, focused);
+            // A dropped docked pane leaves the area's tree as well.
+            DockTree pruned = null;
+            List<PaneLayout> leafPanes = dock == null ? null : leafPanes(dock);
+            if (leafPanes != null) {
+                pruned = dock.retainLeaves(i -> !dropped.contains(leafPanes.get(i)));
+            }
+            return new Layout(kept, focused, pruned);
         }
     }
 
@@ -633,8 +710,9 @@ final class AppState {
             return Layout.EMPTY;
         }
         // Line 0 is the guard (empty for the session layout, the project path for a legacy
-        // per-project one) followed by the index of the focused pane. Layouts written before the
-        // focus index carry the guard alone.
+        // per-project one) followed by the index of the focused pane and the tree of the dock area.
+        // Layouts written before the focus index carry the guard alone; those written before docking
+        // carry no tree, and the two per-column trees of an early docking version fail to parse.
         String[] header = lines[0].split(FIELD_SEP, -1);
         if (!guard.equals(header[0])) {
             return Layout.EMPTY;
@@ -650,7 +728,8 @@ final class AppState {
             return Layout.EMPTY;
         }
         int focused = header.length > 1 ? Math.min(parseInt(header, 1), panes.size() - 1) : -1;
-        return new Layout(panes, Math.max(focused, -1));
+        DockTree dock = header.length > 2 ? DockTrees.parse(header[2]) : null;
+        return new Layout(panes, Math.max(focused, -1), dock);
     }
 
     private void writeLayout(String key, String guard, Layout layout) {
@@ -659,7 +738,8 @@ final class AppState {
             node.remove(key);
         } else {
             StringBuilder sb = new StringBuilder(guard)
-                    .append(FIELD_SEP).append(layout.focusedIndex());
+                    .append(FIELD_SEP).append(layout.focusedIndex())
+                    .append(FIELD_SEP).append(layout.dock() == null ? "" : DockTrees.format(layout.dock()));
             for (PaneLayout pane : layout.panes()) {
                 sb.append('\n').append(serialize(pane));
             }
@@ -697,7 +777,7 @@ final class AppState {
             setSessionLayout(layout);
             // A missing flag meant "open": that was its default.
             boolean wasOpen = !"false".equals(legacyOpen);
-            setOpenProjects(wasOpen && last != null ? List.of(last) : List.of(), last);
+          setOpenProjects(wasOpen && last != null ? List.of(last) : List.of(), last);
             LOG.info(() -> "Migrated the legacy session state" + (last == null ? "" : " of " + last));
         } catch (Exception ex) {
             LOG.log(Level.WARNING, "Could not migrate the legacy session state", ex);
@@ -717,6 +797,12 @@ final class AppState {
                     .append(TAB_SEP).append(tab.topParagraph())
                     .append(TAB_SEP).append(tab.caretParagraph())
                     .append(TAB_SEP).append(tab.caretColumn());
+            if (tab.split() != null) {
+                sb.append(TAB_SEP).append(tab.split().orientation().name())
+                        .append(TAB_SEP).append(tab.split().topParagraph())
+                        .append(TAB_SEP).append(tab.split().caretParagraph())
+                        .append(TAB_SEP).append(tab.split().caretColumn());
+            }
         }
         return sb.toString();
     }
@@ -742,8 +828,9 @@ final class AppState {
             }
         }
         int active = Math.min(parseInt(f, 5), tabs.size() - 1);
-        if (tabs.isEmpty() && role == NbfxTabPane.PaneRole.DETACHED) {
-            // A detached pane exists only for its tabs; without any it would restore as an empty window.
+        if (tabs.isEmpty() && !role.isPermanent()) {
+            // A detached or docked pane exists only for its tabs; without any it would restore as an
+            // empty window or an empty split.
             return null;
         }
         return new PaneLayout(role, parseDouble(f, 1), parseDouble(f, 2),
@@ -756,11 +843,16 @@ final class AppState {
             return null;
         }
         String[] p = field.split(TAB_SEP, -1);
-        TabKind kind = p.length < 2 ? null : parseEnum(TabKind.class, p[0]);
+        // Navigator tabs were persisted as NAVIGATOR before views generalised them.
+        TabKind kind = p.length < 2 ? null
+                : "NAVIGATOR".equals(p[0].trim()) ? TabKind.VIEW : parseEnum(TabKind.class, p[0]);
         if (kind == null || p[1].isBlank()) {
             return null;
         }
-        return new TabEntry(kind, p[1], parseInt(p, 2), parseInt(p, 3), parseInt(p, 4));
+        Orientation orientation = p.length > 5 ? parseEnum(Orientation.class, p[5]) : null;
+        SplitEntry split = orientation == null ? null
+                : new SplitEntry(orientation, parseInt(p, 6), parseInt(p, 7), parseInt(p, 8));
+        return new TabEntry(kind, p[1], parseInt(p, 2), parseInt(p, 3), parseInt(p, 4), split);
     }
 
     private static <E extends Enum<E>> E parseEnum(Class<E> type, String name) {

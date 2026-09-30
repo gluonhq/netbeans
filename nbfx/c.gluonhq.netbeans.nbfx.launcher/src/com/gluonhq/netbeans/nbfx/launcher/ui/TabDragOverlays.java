@@ -1,4 +1,4 @@
-package com.gluonhq.netbeans.nbfx.launcher;
+package com.gluonhq.netbeans.nbfx.launcher.ui;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -21,7 +21,7 @@ import javafx.stage.Window;
  * An overlay is a near-transparent stage per screen that is used to catch drop events outside the
  * current stage, preventing click-through events.
  */
-final class TabDragOverlays {
+public final class TabDragOverlays {
 
     private static final List<Stage> overlays = new ArrayList<>();
     private static BiConsumer<Tab, Point2D> dropHandler;

@@ -1,7 +1,7 @@
-package com.gluonhq.netbeans.nbfx.launcher;
+package com.gluonhq.netbeans.nbfx.launcher.project;
 
-import com.gluonhq.netbeans.nbfx.api.OpenProject;
-import com.gluonhq.netbeans.nbfx.api.ProjectRegistry;
+import com.gluonhq.netbeans.nbfx.api.project.OpenProject;
+import com.gluonhq.netbeans.nbfx.api.project.ProjectRegistry;
 
 import java.util.List;
 import java.util.Objects;
@@ -19,7 +19,7 @@ import javafx.beans.value.ObservableValue;
  * navigator and take the focus there), which is what makes the shortcut feel like a switch rather
  * than a change of a title bar.
  */
-final class ProjectSwitcher {
+public final class ProjectSwitcher {
 
     private final ProjectRegistry registry;
     private final Consumer<OpenProject> onSwitched;
@@ -29,18 +29,18 @@ final class ProjectSwitcher {
      * @param onSwitched called after a switch actually happened, with the newly selected project;
      *                   may be {@code null} when there is nothing to show
      */
-    ProjectSwitcher(ProjectRegistry registry, Consumer<OpenProject> onSwitched) {
+    public ProjectSwitcher(ProjectRegistry registry, Consumer<OpenProject> onSwitched) {
         this.registry = Objects.requireNonNull(registry, "registry");
         this.onSwitched = onSwitched;
     }
 
     /** Selects the project after the selected one, wrapping around at the end. */
-    void next() {
+    public void next() {
         switchTo(neighbour(registry.getOpenProjects(), registry.getSelected(), 1));
     }
 
     /** Selects the project before the selected one, wrapping around at the start. */
-    void previous() {
+    public void previous() {
         switchTo(neighbour(registry.getOpenProjects(), registry.getSelected(), -1));
     }
 
@@ -49,7 +49,7 @@ final class ProjectSwitcher {
      * project that is already selected, are ignored - the latter so that using the menu on the
      * current project does not steal the focus from wherever the user is working.
      */
-    void switchTo(OpenProject project) {
+    public void switchTo(OpenProject project) {
         if (project == null || registry.find(project.getPath()) == null
                 || project.equals(registry.getSelected())) {
             return;
@@ -61,7 +61,7 @@ final class ProjectSwitcher {
     }
 
     /** True while switching is pointless: fewer than two projects are open. */
-    ObservableValue<Boolean> disabled() {
+    public ObservableValue<Boolean> disabled() {
         return Bindings.size(registry.getOpenProjects()).lessThan(2);
     }
 

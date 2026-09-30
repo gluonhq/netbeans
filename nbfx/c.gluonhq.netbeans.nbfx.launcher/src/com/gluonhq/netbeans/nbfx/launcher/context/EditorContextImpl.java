@@ -1,7 +1,9 @@
-package com.gluonhq.netbeans.nbfx.launcher;
+package com.gluonhq.netbeans.nbfx.launcher.context;
 
-import com.gluonhq.netbeans.nbfx.api.EditorContext;
-import com.gluonhq.netbeans.nbfx.api.EditorDocument;
+import com.gluonhq.netbeans.nbfx.launcher.ui.NbfxTabPane;
+
+import com.gluonhq.netbeans.nbfx.api.editor.EditorContext;
+import com.gluonhq.netbeans.nbfx.api.editor.EditorDocument;
 
 import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.ReadOnlyObjectProperty;
@@ -51,6 +53,10 @@ public class EditorContextImpl implements EditorContext {
         documents.remove(document);
         if (activeDocument.get() == document) {
             activeDocument.set(null);
+        }
+        if (document != null) {
+            // The tab is closed for good: release the document's resources (file listeners).
+            document.dispose();
         }
     }
 

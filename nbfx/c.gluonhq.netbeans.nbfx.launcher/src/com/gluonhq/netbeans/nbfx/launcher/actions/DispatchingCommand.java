@@ -1,9 +1,9 @@
-package com.gluonhq.netbeans.nbfx.launcher;
+package com.gluonhq.netbeans.nbfx.launcher.actions;
 
 import java.util.Objects;
 
-import com.gluonhq.netbeans.nbfx.api.AbstractCommand;
-import com.gluonhq.netbeans.nbfx.api.Command;
+import com.gluonhq.netbeans.nbfx.api.actions.AbstractCommand;
+import com.gluonhq.netbeans.nbfx.api.actions.Command;
 
 import javafx.beans.binding.Bindings;
 import javafx.beans.value.ObservableValue;
@@ -14,7 +14,7 @@ import javafx.beans.value.ObservableValue;
  * text and accelerator come from the editor command (labels are identical across targets), while its
  * enabled state and action follow whichever target is currently active.
  */
-final class DispatchingCommand extends AbstractCommand {
+public final class DispatchingCommand extends AbstractCommand {
 
     private final Command editorCommand;
     private final Command fileCommand;

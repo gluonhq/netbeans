@@ -1,19 +1,28 @@
-package com.gluonhq.netbeans.nbfx.launcher;
+package com.gluonhq.netbeans.nbfx.launcher.actions;
 
-import com.gluonhq.netbeans.nbfx.api.ActionIds;
-import com.gluonhq.netbeans.nbfx.api.ActionRegistry;
-import com.gluonhq.netbeans.nbfx.api.Command;
-import com.gluonhq.netbeans.nbfx.api.EditorDocument;
-import com.gluonhq.netbeans.nbfx.api.EditorSettings;
-import com.gluonhq.netbeans.nbfx.api.OpenProject;
-import com.gluonhq.netbeans.nbfx.api.ProjectRegistry;
-import com.gluonhq.netbeans.nbfx.api.RunnableCommand;
-import com.gluonhq.netbeans.nbfx.file.actions.FileActions;
+import com.gluonhq.netbeans.nbfx.launcher.context.EditorContexts;
+import com.gluonhq.netbeans.nbfx.launcher.project.ProjectSwitcher;
+import com.gluonhq.netbeans.nbfx.launcher.session.AppState;
+import com.gluonhq.netbeans.nbfx.launcher.session.DocumentCloser;
+import com.gluonhq.netbeans.nbfx.launcher.ui.TabContextMenu;
+import com.gluonhq.netbeans.nbfx.launcher.ui.ToolBarContainer;
+
+import com.gluonhq.netbeans.nbfx.api.actions.ActionIds;
+import com.gluonhq.netbeans.nbfx.api.actions.ActionRegistry;
+import com.gluonhq.netbeans.nbfx.api.actions.Command;
+import com.gluonhq.netbeans.nbfx.api.actions.EditorContextMenuIds;
+import com.gluonhq.netbeans.nbfx.api.editor.EditorDocument;
+import com.gluonhq.netbeans.nbfx.api.editor.EditorSettings;
+import com.gluonhq.netbeans.nbfx.api.project.OpenProject;
+import com.gluonhq.netbeans.nbfx.api.project.ProjectRegistry;
+import com.gluonhq.netbeans.nbfx.api.actions.RunnableCommand;
 
 import java.io.File;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -21,6 +30,7 @@ import java.util.function.Supplier;
 import java.util.logging.Logger;
 
 import javafx.beans.binding.Bindings;
+import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.value.ObservableValue;
 import javafx.collections.ListChangeListener;
 import javafx.collections.ObservableList;
@@ -45,6 +55,7 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 
+import org.openide.filesystems.FileObject;
 import org.openide.util.Lookup;
 import org.openide.util.NbBundle;
 
@@ -60,7 +71,7 @@ import org.openide.util.NbBundle;
  * tool bar (Undo / Redo). Each tool bar carries a leading drag handle used to relocate it within
  * the {@link ToolBarContainer}.
  */
-final class ActionBars {
+public final class ActionBars {
 
     private static final Logger LOG = Logger.getLogger(ActionBars.class.getName());
 
@@ -81,6 +92,7 @@ final class ActionBars {
         ICONS.put(ActionIds.CUT, "cut.png");
         ICONS.put(ActionIds.COPY, "copy.png");
         ICONS.put(ActionIds.PASTE, "paste.png");
+        ICONS.put(ActionIds.FIND, "find.png");
         ICONS.put(ActionIds.UNDO, "undo24.png");
         ICONS.put(ActionIds.REDO, "redo24.png");
         ICONS.put(ActionIds.SELECT_PROJECTS, "projectTab.png");
@@ -91,8 +103,7 @@ final class ActionBars {
     private final EditorSettings editorSettings;
     private final Map<String, Image> imageCache = new HashMap<>();
 
-    // File action dispatch (set via configureFileActions before the main bars are built).
-    private FileActions fileActions;
+    // File/editor dispatch (set via configureFileDispatch before the main bars are built).
     private ObservableValue<Boolean> treeFocused;
 
     /** The main window's tool bars, captured in {@link #createToolBars} so the View menu can toggle them. */
@@ -116,7 +127,7 @@ final class ActionBars {
     private ProjectSwitcher projectSwitcher;
     private Function<OpenProject, Node> openProjectIconResolver;
 
-    ActionBars() {
+    public ActionBars() {
         this.registry = Lookup.getDefault().lookup(ActionRegistry.class);
         this.editorSettings = Lookup.getDefault().lookup(EditorSettings.class);
     }
@@ -125,7 +136,7 @@ final class ActionBars {
      * Configures the "Open Recent Project" submenu: a supplier of recent projects, a handler to open a chosen project
      * directory, an action to clear the list, and a resolver that builds each project's icon from its stored icon name.
      */
-    void configureRecentProjects(Supplier<List<AppState.RecentProject>> recentProjects, Consumer<File> openProject,
+    public void configureRecentProjects(Supplier<List<AppState.RecentProject>> recentProjects, Consumer<File> openProject,
             Runnable clearRecent, BiFunction<File, String, Node> projectIcon) {
         this.recentProjectsSupplier = recentProjects;
         this.openProjectHandler = openProject;
@@ -135,12 +146,11 @@ final class ActionBars {
 
     /**
      * Configures focus-based file/editor dispatch for the main window's Cut/Copy/Paste/Undo/Redo:
-     * when {@code treeFocused} is true those actions target files (via {@code fileActions}), otherwise
-     * the editor. Must be called before {@link #createMenuBar(ObservableValue)} /
-     * {@link #createToolBars(ObservableValue)}.
+     * when {@code treeFocused} is true those actions target their file counterparts (the
+     * {@code file.*} commands from the registry), otherwise the editor. Must be called before
+     * {@link #createMenuBar(ObservableValue)} / {@link #createToolBars(ObservableValue)}.
      */
-    void configureFileActions(FileActions fileActions, ObservableValue<Boolean> treeFocused) {
-        this.fileActions = fileActions;
+    public void configureFileDispatch(ObservableValue<Boolean> treeFocused) {
         this.treeFocused = treeFocused;
     }
 
@@ -149,7 +159,7 @@ final class ActionBars {
      * Must be called before {@link #createMenuBar(ObservableValue)} / {@link #createToolBars(ObservableValue)} so their
      * controls can be built.
      */
-    void registerProjectCommands(Runnable newProject, Runnable openProject,
+    public void registerProjectCommands(Runnable newProject, Runnable openProject,
             Runnable closeProject, Runnable closeAllProjects, ObservableValue<Boolean> closeDisabled) {
         if (registry == null) {
             LOG.warning("No ActionRegistry found; project actions will not be available");
@@ -168,7 +178,7 @@ final class ActionBars {
     }
 
     /** The launcher-owned window actions and their enablement, passed to {@link #registerWindowCommands}. */
-    record WindowActions(
+    public record WindowActions(
             Runnable selectProjects, Runnable selectFiles, Runnable selectEditor, Runnable resetWindows,
             Runnable closeDocument, ObservableValue<Boolean> closeDocumentDisabled,
             Runnable closeAllDocuments, ObservableValue<Boolean> closeAllDisabled,
@@ -180,7 +190,7 @@ final class ActionBars {
      * Windows, and the Close Document/All/Other actions) into the registry. Must be called before
      * {@link #createMenuBar(ObservableValue)} so the Window menu can be built.
      */
-    void registerWindowCommands(WindowActions actions) {
+    public void registerWindowCommands(WindowActions actions) {
         if (registry == null) {
             LOG.warning("No ActionRegistry found; window actions will not be available");
             return;
@@ -204,12 +214,36 @@ final class ActionBars {
     }
 
     /**
+     * Registers the launcher-owned entries of the editor's context menu and appends them to
+     * {@link EditorContextMenuIds}: Select in Projects, which reveals the file of the globally
+     * active editor (the right-clicked one, as opening the menu focuses it) in the Projects view.
+     */
+    public void registerEditorContextCommands(Consumer<FileObject> selectInProjects) {
+        if (registry == null) {
+            LOG.warning("No ActionRegistry found; editor context actions will not be available");
+            return;
+        }
+        ObservableValue<EditorDocument> active = EditorContexts.activeDocument();
+        ObservableValue<Boolean> disabled = active == null
+                ? new SimpleBooleanProperty(true)
+                : Bindings.createBooleanBinding(() -> active.getValue() == null, active);
+        registry.register(new RunnableCommand(ActionIds.SELECT_IN_PROJECTS, message("CTL_SelectInProjectsCommand"),
+                null, () -> {
+                    EditorDocument document = active == null ? null : active.getValue();
+                    if (document != null) {
+                        selectInProjects.accept(document.getFileObject());
+                    }
+                }, disabled));
+        EditorContextMenuIds.add(EditorContextMenuIds.SEPARATOR, ActionIds.SELECT_IN_PROJECTS);
+    }
+
+    /**
      * Configures project switching: registers the Next/Previous Project commands and gives the
      * Window menu what it needs to list the open projects - the registry to observe, the
      * {@code switcher} that performs the switch, and a resolver for each project's icon. Must be
      * called before {@link #createMenuBar(ObservableValue)}.
      */
-    void configureProjectSwitching(ProjectRegistry registry, ProjectSwitcher switcher,
+    public void configureProjectSwitching(ProjectRegistry registry, ProjectSwitcher switcher,
             Function<OpenProject, Node> projectIcon) {
         this.projects = registry;
         this.projectSwitcher = switcher;
@@ -233,7 +267,7 @@ final class ActionBars {
      * collected into {@code scopedCommands}; the caller must {@link Command#dispose() dispose} them when
      * the window closes.
      */
-    VBox createDetachedBars(ObservableValue<EditorDocument> scope, List<Command> scopedCommands) {
+    public VBox createDetachedBars(ObservableValue<EditorDocument> scope, List<Command> scopedCommands) {
         List<Command> previous = scopedSink;
         scopedSink = scopedCommands;
         try {
@@ -247,12 +281,10 @@ final class ActionBars {
      * Builds the main menu bar, scoping the active-document actions to {@code mainScope}, so they act on the main
      * window regardless of which window has focus. Save All and project actions stay global.
      */
-    MenuBar createMenuBar(ObservableValue<EditorDocument> mainScope) {
-        try {
-            LOG.info("[NBFX] Start creating menubar");
+    public MenuBar createMenuBar(ObservableValue<EditorDocument> mainScope) {
         Menu fileMenu = new Menu(message("Menu.file"));
         recentMenu = new Menu(message("Menu.openRecent"));
-        refreshRecentProjects();
+      refreshRecentProjects();
         addMenuItems(fileMenu,
                 createMenuItem(ActionIds.NEW_PROJECT, mainScope, treeFocused),
                 createMenuItem(ActionIds.OPEN_PROJECT, mainScope, treeFocused),
@@ -272,17 +304,13 @@ final class ActionBars {
         // TODO: Fix https://bugs.openjdk.org/browse/JDK-8388508
         menuBar.setUseSystemMenuBar(true);
         return menuBar;
-        } catch (Throwable t) {
-            t.printStackTrace();
-        }
-        return null;
     }
 
     /**
      * Builds the View menu: a Toolbars submenu with a check item per main-window tool bar (to hide
-     * or show it) plus a Reset Toolbars action, and a Show Line Numbers toggle bound to the shared
-     * {@link EditorSettings}. The Toolbars submenu is only present once {@link #createToolBars} has
-     * created the main tool bars.
+     * or show it) plus a Reset Toolbars action, and Show Line Numbers / Show Breadcrumbs toggles
+     * bound to the shared {@link EditorSettings}. The Toolbars submenu is only present once
+     * {@link #createToolBars} has created the main tool bars.
      */
     private Menu createViewMenu() {
         Menu viewMenu = new Menu(message("Menu.view"));
@@ -303,6 +331,9 @@ final class ActionBars {
             CheckMenuItem lineNumbers = new CheckMenuItem(message("Menu.view.showLineNumbers"));
             lineNumbers.selectedProperty().bindBidirectional(editorSettings.showLineNumbers());
             viewMenu.getItems().add(lineNumbers);
+            CheckMenuItem breadcrumbs = new CheckMenuItem(message("Menu.view.showBreadcrumbs"));
+            breadcrumbs.selectedProperty().bindBidirectional(editorSettings.showBreadcrumbs());
+            viewMenu.getItems().add(breadcrumbs);
         }
         return viewMenu;
     }
@@ -320,7 +351,9 @@ final class ActionBars {
     }
 
     /**
-     * Builds the Window menu: Projects / Files / Editor selection, Reset Windows, the
+     * Builds the Window menu: Projects / Files / Editor (and Usages / Search Results, when a module
+     * contributes the command) selection, the Configure Window submenu (the
+     * layout actions of the tab context menus, applied to the focused tab), Reset Windows, the
      * Close Document / Close All / Close Other actions, all routed through the shared registry, and
      * finally the project section - Next / Previous Project plus one entry per open project.
      */
@@ -330,7 +363,10 @@ final class ActionBars {
                 createMenuItem(ActionIds.SELECT_PROJECTS, mainScope, null),
                 createMenuItem(ActionIds.SELECT_FILES, mainScope, null),
                 createMenuItem(ActionIds.SELECT_EDITOR, mainScope, null),
+                createOptionalMenuItem(ActionIds.SELECT_USAGES, mainScope),
+                createOptionalMenuItem(ActionIds.SELECT_SEARCH_RESULTS, mainScope),
                 new SeparatorMenuItem(),
+                TabContextMenu.createConfigureWindowMenu(),
                 createMenuItem(ActionIds.RESET_WINDOWS, mainScope, null),
                 new SeparatorMenuItem(),
                 createMenuItem(ActionIds.CLOSE_DOCUMENT, mainScope, null),
@@ -401,7 +437,14 @@ final class ActionBars {
         }
     }
 
-    private Menu createEditMenu(ObservableValue<EditorDocument> scope, ObservableValue<Boolean> preferFile) {        Menu editMenu = new Menu(message("Menu.edit"));
+    /**
+     * Builds the Edit menu, in NetBeans' order: Undo / Redo, Cut / Copy / Paste, Find Selection /
+     * Find Next / Find Previous, Find..., Replace..., Find in Projects... and - when a module
+     * registers the command - Find Usages. The find items are optional too: they come with the
+     * editor actions and search modules.
+     */
+    private Menu createEditMenu(ObservableValue<EditorDocument> scope, ObservableValue<Boolean> preferFile) {
+        Menu editMenu = new Menu(message("Menu.edit"));
         addMenuItems(editMenu,
                 createMenuItem(ActionIds.UNDO, scope, preferFile),
                 createMenuItem(ActionIds.REDO, scope, preferFile),
@@ -409,7 +452,45 @@ final class ActionBars {
                 createMenuItem(ActionIds.CUT, scope, preferFile),
                 createMenuItem(ActionIds.COPY, scope, preferFile),
                 createMenuItem(ActionIds.PASTE, scope, preferFile));
+        addMenuGroup(editMenu,
+                createOptionalMenuItem(ActionIds.FIND_SELECTION, scope),
+                createOptionalMenuItem(ActionIds.FIND_NEXT, scope),
+                createOptionalMenuItem(ActionIds.FIND_PREVIOUS, scope));
+        addMenuGroup(editMenu,
+                // Shortcut+F: the Find bar in the editor, Find in Projects on the selection in the tree
+                createOptionalMenuItem(ActionIds.FIND, scope, preferFile),
+                createOptionalMenuItem(ActionIds.REPLACE, scope),
+                createOptionalMenuItem(ActionIds.FIND_IN_PROJECTS, scope),
+                createOptionalMenuItem(ActionIds.REPLACE_IN_PROJECTS, scope));
+        addMenuGroup(editMenu,
+                createOptionalMenuItem(ActionIds.FIND_USAGES, scope));
         return editMenu;
+    }
+
+    /** Appends {@code items} after a separator, skipping the {@code null}s; nothing when all are {@code null}. */
+    private static void addMenuGroup(Menu menu, MenuItem... items) {
+        if (Arrays.stream(items).allMatch(Objects::isNull)) {
+            return;
+        }
+        menu.getItems().add(new SeparatorMenuItem());
+        addMenuItems(menu, items);
+    }
+
+    /**
+     * A menu item for a command another module may or may not contribute (e.g. Find Usages):
+     * {@code null}, without a warning, when no command is registered under {@code commandId}.
+     */
+    private MenuItem createOptionalMenuItem(String commandId, ObservableValue<EditorDocument> scope) {
+        return createOptionalMenuItem(commandId, scope, null);
+    }
+
+    /** As {@link #createOptionalMenuItem(String, ObservableValue)}, dispatching to the file counterpart while the tree is focused. */
+    private MenuItem createOptionalMenuItem(String commandId, ObservableValue<EditorDocument> scope,
+            ObservableValue<Boolean> preferFile) {
+        if (registry == null || registry.find(commandId).isEmpty()) {
+            return null;
+        }
+        return createMenuItem(commandId, scope, preferFile);
     }
 
     /**
@@ -431,8 +512,8 @@ final class ActionBars {
     }
 
     /**
-     * Builds a reduced Window menu for a detached editor window: Close Document / Close All / Close
-     * Other Documents, scoped to that window's selected editor ({@code scope}), plus Next / Previous
+     * Builds a reduced Window menu for a detached editor window: Configure Window, Close Document /
+     * Close All / Close Other Documents, scoped to that window's selected editor ({@code scope}), plus Next / Previous
      * Project. Navigator/layout items (Projects / Files / Editor / Reset Windows) are omitted, as
      * they only apply to the main window, and so is the list of open projects: the selection is
      * shown - and switched to - in the main window's navigator.
@@ -458,7 +539,8 @@ final class ActionBars {
         closeOther.setOnAction(e -> DocumentCloser.closeOtherDocuments(scope == null ? null : scope.getValue()));
         closeOther.disableProperty().bind(Bindings.size(documents).lessThan(2));
 
-        addMenuItems(windowMenu, close, closeAll, closeOther);
+        addMenuItems(windowMenu, TabContextMenu.createConfigureWindowMenu(), new SeparatorMenuItem(),
+                close, closeAll, closeOther);
         if (projectSwitcher != null) {
             addMenuItems(windowMenu,
                     new SeparatorMenuItem(),
@@ -477,7 +559,7 @@ final class ActionBars {
      * Rebuilds the "Open Recent Project" submenu from the current recent list. Each entry opens its
      * project; a trailing action clears the list. When empty, a single disabled placeholder is shown.
      */
-    void refreshRecentProjects() {
+    public void refreshRecentProjects() {
         if (recentMenu == null) {
             return;
         }
@@ -520,10 +602,11 @@ final class ActionBars {
      *
      * @return the tool bar container for the top area
      */
-    ToolBarContainer createToolBars(ObservableValue<EditorDocument> mainScope) {
+    public ToolBarContainer createToolBars(ObservableValue<EditorDocument> mainScope) {
         ToolBar fileBar = createToolBar("file", mainScope, treeFocused, ActionIds.NEW_PROJECT, ActionIds.OPEN_PROJECT,
                 ActionIds.SAVE, ActionIds.SAVE_ALL);
-        ToolBar clipboardBar = createToolBar("clipboard", mainScope, treeFocused, ActionIds.CUT, ActionIds.COPY, ActionIds.PASTE);
+        ToolBar clipboardBar = createToolBar("clipboard", mainScope, treeFocused, ActionIds.CUT, ActionIds.COPY, ActionIds.PASTE,
+                ActionIds.FIND);
         ToolBar editBar = createToolBar("edit", mainScope, treeFocused, ActionIds.UNDO, ActionIds.REDO);
         toolBarContainer = new ToolBarContainer(fileBar, clipboardBar, editBar);
         return toolBarContainer;
@@ -548,7 +631,7 @@ final class ActionBars {
         addButtons(fileBar, scope, null, ActionIds.SAVE, ActionIds.SAVE_ALL);
         mirrorMainVisibility(fileBar, "file");
         ToolBar clipboardBar = new ToolBar(new Separator());
-        addButtons(clipboardBar, scope, null, ActionIds.CUT, ActionIds.COPY, ActionIds.PASTE);
+        addButtons(clipboardBar, scope, null, ActionIds.CUT, ActionIds.COPY, ActionIds.PASTE, ActionIds.FIND);
         mirrorMainVisibility(clipboardBar, "clipboard");
         ToolBar editBar = new ToolBar(new Separator());
         addButtons(editBar, scope, null, ActionIds.UNDO, ActionIds.REDO);
@@ -615,7 +698,6 @@ final class ActionBars {
 
     private MenuItem createMenuItem(String commandId, ObservableValue<EditorDocument> scope,
             ObservableValue<Boolean> preferFile) {
-        LOG.info("Create menuItem for "+commandId);
         Command command = resolve(commandId, scope, preferFile);
         if (command == null) {
             return null;
@@ -707,12 +789,12 @@ final class ActionBars {
     /**
      * Resolves the command for {@code commandId}: a window-scoped variant bound to {@code scope} for active-document
      * actions, or the shared global command for global actions or if no scope is given. When {@code preferFile} is
-     * given and the command has a file counterpart (Cut/Copy/Paste/Undo/Redo), returns a {@link DispatchingCommand}
-     * that targets files while the tree is focused and the editor otherwise.
+     * given and the command has a file counterpart (Cut/Copy/Paste/Undo/Redo, and Find when the Find in Projects
+     * module registers {@code file.find}), returns a {@link DispatchingCommand} that targets files while the tree is
+     * focused and the editor otherwise.
      */
     private Command resolve(String commandId, ObservableValue<EditorDocument> scope,
             ObservableValue<Boolean> preferFile) {
-        LOG.info("Need to resolve "+commandId+ " and registry = "+registry);
         if (registry == null) {
             return null;
         }
@@ -720,8 +802,7 @@ final class ActionBars {
                 .map(this::trackScoped)
                 .or(() -> registry.find(commandId))
                 .orElse(null);
-        LOG.info("Editor = "+editor+" and preferFile = "+preferFile+" and fa = " + fileActions);
-        if (preferFile != null && fileActions != null) {
+        if (preferFile != null) {
             Command file = fileCommandFor(commandId);
             if (file != null && editor != null) {
                 return new DispatchingCommand(editor, file, preferFile);
@@ -741,16 +822,18 @@ final class ActionBars {
         return command;
     }
 
-    /** Returns the file-scoped command for {@code commandId}, or {@code null} if none applies. */
+    /** Returns the registered file-scoped counterpart of {@code commandId}, or {@code null} if none applies. */
     private Command fileCommandFor(String commandId) {
-        return switch (commandId) {
-            case ActionIds.CUT -> fileActions.cutCommand();
-            case ActionIds.COPY -> fileActions.copyCommand();
-            case ActionIds.PASTE -> fileActions.pasteCommand();
-            case ActionIds.UNDO -> fileActions.undoCommand();
-            case ActionIds.REDO -> fileActions.redoCommand();
+        String fileId = switch (commandId) {
+            case ActionIds.CUT -> ActionIds.FILE_CUT;
+            case ActionIds.COPY -> ActionIds.FILE_COPY;
+            case ActionIds.PASTE -> ActionIds.FILE_PASTE;
+            case ActionIds.UNDO -> ActionIds.FILE_UNDO;
+            case ActionIds.REDO -> ActionIds.FILE_REDO;
+            case ActionIds.FIND -> ActionIds.FILE_FIND;
             default -> null;
         };
+        return fileId == null ? null : registry.find(fileId).orElse(null);
     }
 
     private static String message(String key) {
