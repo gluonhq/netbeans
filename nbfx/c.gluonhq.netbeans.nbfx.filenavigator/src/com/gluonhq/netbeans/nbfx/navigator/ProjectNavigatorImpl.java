@@ -118,7 +118,7 @@ public class ProjectNavigatorImpl extends AbstractNavigatorProvider<ProjectEntry
 
     @Override
     public String getTitle() {
-        return "Project";
+        return NbBundle.getMessage(FileNavigatorImpl.class, "Navigator.title.projects");
     }
 
     @Override

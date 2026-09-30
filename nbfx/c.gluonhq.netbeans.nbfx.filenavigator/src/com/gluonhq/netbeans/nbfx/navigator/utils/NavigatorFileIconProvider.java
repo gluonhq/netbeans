@@ -1,6 +1,6 @@
 package com.gluonhq.netbeans.nbfx.navigator.utils;
 
-import com.gluonhq.netbeans.nbfx.api.FileIconProvider;
+import com.gluonhq.netbeans.nbfx.api.file.FileIconProvider;
 import javafx.scene.Node;
 import org.openide.filesystems.FileObject;
 import org.openide.util.lookup.ServiceProvider;

@@ -3,7 +3,7 @@
     <type>org.netbeans.modules.apisupport.project</type>
     <configuration>
         <data xmlns="http://www.netbeans.org/ns/nb-module-project/3">
-            <code-name-base>com.gluonhq.netbeans.nbfx.navigator</code-name-base>
+            <code-name-base>com.gluonhq.netbeans.nbfx.filenavigator</code-name-base>
             <module-dependencies>
                 <dependency>
                     <code-name-base>com.gluonhq.netbeans.nbfx.api</code-name-base>
@@ -14,7 +14,7 @@
                     </run-dependency>
                 </dependency>
                 <dependency>
-                    <code-name-base>com.gluonhq.netbeans.nbfx.fileactions</code-name-base>
+                    <code-name-base>com.gluonhq.netbeans.nbfx.file.actions</code-name-base>
                     <build-prerequisite/>
                     <compile-dependency/>
                     <run-dependency>
@@ -22,7 +22,7 @@
                     </run-dependency>
                 </dependency>
                 <dependency>
-                    <code-name-base>com.gluonhq.netbeans.nbfx.jfx26</code-name-base>
+                    <code-name-base>com.gluonhq.netbeans.nbfx.lib.javafx</code-name-base>
                     <build-prerequisite/>
                     <compile-dependency/>
                     <run-dependency>
@@ -52,7 +52,8 @@
                     <build-prerequisite/>
                     <compile-dependency/>
                     <run-dependency>
-                        <specification-version>1.70</specification-version>
+                        <release-version>1</release-version>
+                        <specification-version>1.106</specification-version>
                     </run-dependency>
                 </dependency>
                 <dependency>
@@ -60,7 +61,7 @@
                     <build-prerequisite/>
                     <compile-dependency/>
                     <run-dependency>
-                        <specification-version>1.50</specification-version>
+                        <specification-version>2.85.0</specification-version>
                     </run-dependency>
                 </dependency>
                 <dependency>
@@ -69,7 +70,7 @@
                     <compile-dependency/>
                     <run-dependency>
                         <release-version>2</release-version>
-                        <specification-version>2.133</specification-version>
+                        <specification-version>2.174.0</specification-version>
                     </run-dependency>
                 </dependency>
                 <dependency>
@@ -78,7 +79,7 @@
                     <compile-dependency/>
                     <run-dependency>
                         <release-version>2</release-version>
-                        <specification-version>2.58</specification-version>
+                        <specification-version>2.89</specification-version>
                     </run-dependency>
                 </dependency>
                 <dependency>
@@ -87,7 +88,7 @@
                     <compile-dependency/>
                     <run-dependency>
                         <release-version>1</release-version>
-                        <specification-version>1.23</specification-version>
+                        <specification-version>1.106</specification-version>
                     </run-dependency>
                 </dependency>
                 <dependency>
@@ -104,7 +105,15 @@
                     <build-prerequisite/>
                     <compile-dependency/>
                     <run-dependency>
-                        <specification-version>8.0</specification-version>
+                        <specification-version>9.47</specification-version>
+                    </run-dependency>
+                </dependency>
+                <dependency>
+                    <code-name-base>org.openide.loaders</code-name-base>
+                    <build-prerequisite/>
+                    <compile-dependency/>
+                    <run-dependency>
+                        <specification-version>7.104</specification-version>
                     </run-dependency>
                 </dependency>
                 <dependency>
@@ -112,7 +121,7 @@
                     <build-prerequisite/>
                     <compile-dependency/>
                     <run-dependency>
-                        <specification-version>7.0</specification-version>
+                        <specification-version>7.82</specification-version>
                     </run-dependency>
                 </dependency>
                 <dependency>
@@ -128,7 +137,7 @@
                     <build-prerequisite/>
                     <compile-dependency/>
                     <run-dependency>
-                        <specification-version>9.0</specification-version>
+                        <specification-version>9.42</specification-version>
                     </run-dependency>
                 </dependency>
                 <dependency>
@@ -136,12 +145,20 @@
                     <build-prerequisite/>
                     <compile-dependency/>
                     <run-dependency>
-                        <specification-version>8.0</specification-version>
+                        <specification-version>8.68</specification-version>
+                    </run-dependency>
+                </dependency>
+                <dependency>
+                    <code-name-base>org.openide.util.ui</code-name-base>
+                    <build-prerequisite/>
+                    <compile-dependency/>
+                    <run-dependency>
+                        <specification-version>9.43</specification-version>
                     </run-dependency>
                 </dependency>
             </module-dependencies>
             <public-packages>
-                <package>com.gluonhq.netbeans.nbfx.navigator</package>
+                <subpackages>com.gluonhq.netbeans.nbfx.navigator</subpackages>
             </public-packages>
         </data>
     </configuration>

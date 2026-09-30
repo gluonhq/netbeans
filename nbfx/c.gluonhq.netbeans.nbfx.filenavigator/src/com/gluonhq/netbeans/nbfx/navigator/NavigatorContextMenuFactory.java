@@ -1,10 +1,11 @@
 package com.gluonhq.netbeans.nbfx.navigator;
 
-import com.gluonhq.netbeans.nbfx.api.ActionIds;
-import com.gluonhq.netbeans.nbfx.api.ActionRegistry;
-import com.gluonhq.netbeans.nbfx.api.Command;
-import com.gluonhq.netbeans.nbfx.api.EditorContext;
-import com.gluonhq.netbeans.nbfx.api.OpenProject;
+import com.gluonhq.netbeans.nbfx.api.actions.ActionIds;
+import com.gluonhq.netbeans.nbfx.api.actions.ActionRegistry;
+import com.gluonhq.netbeans.nbfx.api.actions.Command;
+import com.gluonhq.netbeans.nbfx.api.actions.FileContextMenuContributor;
+import com.gluonhq.netbeans.nbfx.api.editor.EditorContext;
+import com.gluonhq.netbeans.nbfx.api.project.OpenProject;
 import com.gluonhq.netbeans.nbfx.file.actions.DesktopActions;
 import com.gluonhq.netbeans.nbfx.file.actions.FileClipboardActions;
 import com.gluonhq.netbeans.nbfx.navigator.utils.NavigatorIcons;
@@ -33,7 +34,8 @@ import org.openide.util.NbBundle;
  * Builds the shared navigator {@link ContextMenu}, driven by a {@link Host} that adapts it to a
  * particular tree (the logical Project view or the physical Files view). The menu content is the
  * same for both views; the host only supplies how a node maps to a {@link FileObject}, whether it is
- * the tree root, whether it can be deleted, and how to delete/open the backing files.
+ * the tree root, whether it can be deleted, and how to delete/open the backing files. Other modules
+ * add items for file and folder nodes through {@link FileContextMenuContributor}.
  *
  * @param <T> the tree item value type
  */
@@ -97,6 +99,14 @@ final class NavigatorContextMenuFactory<T> {
                     new SeparatorMenuItem(),
                     deleteItem(clicked),
                     new SeparatorMenuItem());
+            List<MenuItem> contributed = new ArrayList<>();
+            for (FileContextMenuContributor contributor : Lookup.getDefault().lookupAll(FileContextMenuContributor.class)) {
+                contributed.addAll(contributor.itemsFor(fo));
+            }
+            if (!contributed.isEmpty()) {
+                menu.getItems().addAll(contributed);
+                menu.getItems().add(new SeparatorMenuItem());
+            }
         } else if (host.isRoot(clicked)) {
             menu.getItems().addAll(
                     saveItem(fo),
@@ -106,6 +116,8 @@ final class NavigatorContextMenuFactory<T> {
                 menu.getItems().add(closeAllItem());
             }
             menu.getItems().add(new SeparatorMenuItem());
+            // A project root is a folder too: Find in Projects offers Find... on it, as NetBeans does.
+            addFolderContributions(menu, List.of(fo));
         } else {
             // A branch (folder / package).
             menu.getItems().addAll(
@@ -118,6 +130,7 @@ final class NavigatorContextMenuFactory<T> {
                         deleteItem(clicked),
                         new SeparatorMenuItem());
             }
+            addFolderContributions(menu, List.of(fo));
         }
         // Terminal / file-manager actions are available on every node.
         menu.getItems().addAll(
@@ -157,9 +170,24 @@ final class NavigatorContextMenuFactory<T> {
                 copyManyItem(deletableFiles),
                 new SeparatorMenuItem(),
                 deleteManyItem(deletable),
-                new SeparatorMenuItem(),
-                showInFileManagerManyItem(files));
+                new SeparatorMenuItem());
+        if (files.stream().allMatch(FileObject::isFolder)) {
+            addFolderContributions(menu, files);
+        }
+        menu.getItems().add(showInFileManagerManyItem(files));
         return menu;
+    }
+
+    /** The items the registered contributors offer for {@code folders}, in their own section, before the terminal items. */
+    private static void addFolderContributions(ContextMenu menu, List<FileObject> folders) {
+        List<MenuItem> contributed = new ArrayList<>();
+        for (FileContextMenuContributor contributor : Lookup.getDefault().lookupAll(FileContextMenuContributor.class)) {
+            contributed.addAll(contributor.itemsForFolders(folders));
+        }
+        if (!contributed.isEmpty()) {
+            menu.getItems().addAll(contributed);
+            menu.getItems().add(new SeparatorMenuItem());
+        }
     }
 
     private void addClipboardItems(ContextMenu menu, FileObject fo, boolean canCutCopy) {

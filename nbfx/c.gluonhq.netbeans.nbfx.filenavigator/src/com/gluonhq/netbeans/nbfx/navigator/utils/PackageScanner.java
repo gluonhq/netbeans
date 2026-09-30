@@ -7,7 +7,7 @@ import java.util.ResourceBundle;
 import java.util.logging.Logger;
 
 import com.gluonhq.netbeans.nbfx.api.ContentManager;
-import com.gluonhq.netbeans.nbfx.api.FileTypes;
+import com.gluonhq.netbeans.nbfx.api.file.FileTypes;
 import com.gluonhq.netbeans.nbfx.navigator.ProjectEntry;
 import org.netbeans.api.queries.VisibilityQuery;
 import org.openide.filesystems.FileObject;

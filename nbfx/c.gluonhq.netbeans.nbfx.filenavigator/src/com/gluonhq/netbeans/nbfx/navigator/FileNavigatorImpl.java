@@ -64,7 +64,7 @@ public class FileNavigatorImpl extends AbstractNavigatorProvider<FileObject> {
 
     @Override
     public String getTitle() {
-        return "Files";
+        return NbBundle.getMessage(FileNavigatorImpl.class, "Navigator.title.files");
     }
 
     @Override

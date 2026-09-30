@@ -1,7 +1,7 @@
 package com.gluonhq.netbeans.nbfx.navigator;
 
 import com.gluonhq.netbeans.nbfx.api.NavigatorProvider;
-import com.gluonhq.netbeans.nbfx.api.OpenProject;
+import com.gluonhq.netbeans.nbfx.api.project.OpenProject;
 import com.gluonhq.netbeans.nbfx.navigator.utils.ProjectModuleInfoAccessibilityQuery;
 import com.gluonhq.netbeans.nbfx.navigator.utils.Projects;
 import com.gluonhq.netbeans.nbfx.navigator.utils.TreeNav;

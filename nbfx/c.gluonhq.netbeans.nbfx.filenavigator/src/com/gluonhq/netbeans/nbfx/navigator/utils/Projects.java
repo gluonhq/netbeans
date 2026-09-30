@@ -1,7 +1,7 @@
 package com.gluonhq.netbeans.nbfx.navigator.utils;
 
-import com.gluonhq.netbeans.nbfx.api.OpenProject;
-import com.gluonhq.netbeans.nbfx.api.ProjectRegistry;
+import com.gluonhq.netbeans.nbfx.api.project.OpenProject;
+import com.gluonhq.netbeans.nbfx.api.project.ProjectRegistry;
 
 import java.util.List;
 
