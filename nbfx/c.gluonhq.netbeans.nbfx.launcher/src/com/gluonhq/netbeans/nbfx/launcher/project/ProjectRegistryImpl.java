@@ -201,7 +201,7 @@ public class ProjectRegistryImpl implements ProjectRegistry {
                 return;
             }
             try {
-                OpenProjects.getDefault().open(new Project[] {project}, false);
+                OpenProjects.getDefault().open(new Project[] {project}, true);
             } catch (RuntimeException | LinkageError ex) {
                 LOG.log(Level.FINE, "Could not open " + root + " in the platform", ex);
             }
