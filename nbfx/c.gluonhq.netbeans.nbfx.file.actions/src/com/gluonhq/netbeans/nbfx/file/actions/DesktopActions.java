@@ -77,6 +77,25 @@ public final class DesktopActions {
         }
     }
 
+    /** Opens the given file with the application the operating system associates to it. */
+    public static void openInSystem(File target) {
+        if (target == null) {
+            return;
+        }
+        try {
+            String absolutePath = target.getAbsolutePath();
+            if (MAC) {
+                run("open", absolutePath);
+            } else if (WINDOWS) {
+                run("cmd", "/c", "start", "", absolutePath);
+            } else {
+                run("xdg-open", absolutePath);
+            }
+        } catch (IOException ex) {
+            LOG.log(Level.WARNING, "Failed to open " + target + " with the system application", ex);
+        }
+    }
+
     private static File directoryOf(File target) {
         if (target == null) {
             return null;

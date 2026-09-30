@@ -3,9 +3,10 @@ package com.gluonhq.netbeans.nbfx.file.actions;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.gluonhq.netbeans.nbfx.api.ActionIds;
-import com.gluonhq.netbeans.nbfx.api.Command;
-import com.gluonhq.netbeans.nbfx.api.RunnableCommand;
+import com.gluonhq.netbeans.nbfx.api.actions.ActionIds;
+import com.gluonhq.netbeans.nbfx.api.actions.Command;
+import com.gluonhq.netbeans.nbfx.api.file.FileSelectionContext;
+import com.gluonhq.netbeans.nbfx.api.actions.RunnableCommand;
 
 import javafx.beans.binding.Bindings;
 import javafx.beans.binding.BooleanBinding;
@@ -20,11 +21,13 @@ import org.openide.filesystems.FileUtil;
 import org.openide.util.NbBundle;
 
 /**
- * Builds file-scoped {@link Command}s (Cut / Copy / Paste / Undo / Redo) driven by the current
- * navigator selection, the system clipboard and the shared {@link FileUndoManager}.
+ * Builds the file-scoped {@link Command}s (Cut / Copy / Paste / Undo / Redo, registered under the
+ * {@code file.*} ids) driven by the shared {@link FileSelectionContext}, the system clipboard and
+ * the shared {@link FileUndoManager}.
  *
  * <p>The system clipboard is not observable, so {@link #refreshClipboardState()} must be called
- * when the paste enablement should be re-evaluated. Copy/cut/paste refresh it automatically.</p>
+ * when the paste enablement should be re-evaluated. Copy/cut/paste refresh it automatically, and
+ * so does the navigator regaining focus.</p>
  */
 public final class FileActions {
 
@@ -38,8 +41,8 @@ public final class FileActions {
     private final Command undoCommand;
     private final Command redoCommand;
 
-    public FileActions(ObservableValue<List<FileObject>> selection) {
-        this.selection = selection;
+    public FileActions(FileSelectionContext context) {
+        this.selection = context.selectedFiles();
 
         BooleanBinding canCopyCut = Bindings.createBooleanBinding(
                 () -> !realFiles().isEmpty(), selection);
@@ -49,20 +52,26 @@ public final class FileActions {
 
         FileUndoManager undo = FileUndoManager.getDefault();
 
-        copyCommand = RunnableCommand.enabledWhen(ActionIds.COPY, message("CTL_FileCopy"),
+        copyCommand = RunnableCommand.enabledWhen(ActionIds.FILE_COPY, message("CTL_FileCopy"),
                 shortcut(KeyCode.C), canCopyCut, this::copy);
-        cutCommand = RunnableCommand.enabledWhen(ActionIds.CUT, message("CTL_FileCut"),
+        cutCommand = RunnableCommand.enabledWhen(ActionIds.FILE_CUT, message("CTL_FileCut"),
                 shortcut(KeyCode.X), canCopyCut, this::cut);
-        pasteCommand = RunnableCommand.enabledWhen(ActionIds.PASTE, message("CTL_FilePaste"),
+        pasteCommand = RunnableCommand.enabledWhen(ActionIds.FILE_PASTE, message("CTL_FilePaste"),
                 shortcut(KeyCode.V), canPaste, this::paste);
-        undoCommand = RunnableCommand.enabledWhen(ActionIds.UNDO, message("CTL_FileUndo"),
+        undoCommand = RunnableCommand.enabledWhen(ActionIds.FILE_UNDO, message("CTL_FileUndo"),
                 new KeyCodeCombination(KeyCode.Z, KeyCombination.SHORTCUT_DOWN),
                 undo.canUndoProperty(), undo::undo);
-        redoCommand = RunnableCommand.enabledWhen(ActionIds.REDO, message("CTL_FileRedo"),
+        redoCommand = RunnableCommand.enabledWhen(ActionIds.FILE_REDO, message("CTL_FileRedo"),
                 new KeyCodeCombination(KeyCode.Z, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN),
                 undo.canRedoProperty(), undo::redo);
 
         selection.addListener((obs, old, now) -> refreshClipboardState());
+        // The system clipboard is not observable; re-check it whenever the navigator regains focus.
+        context.navigatorFocused().addListener((obs, was, focused) -> {
+            if (Boolean.TRUE.equals(focused)) {
+                refreshClipboardState();
+            }
+        });
         refreshClipboardState();
     }
 

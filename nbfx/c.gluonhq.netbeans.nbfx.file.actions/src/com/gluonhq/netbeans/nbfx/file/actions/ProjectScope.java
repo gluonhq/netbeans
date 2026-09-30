@@ -1,7 +1,7 @@
 package com.gluonhq.netbeans.nbfx.file.actions;
 
-import com.gluonhq.netbeans.nbfx.api.OpenProject;
-import com.gluonhq.netbeans.nbfx.api.ProjectRegistry;
+import com.gluonhq.netbeans.nbfx.api.project.OpenProject;
+import com.gluonhq.netbeans.nbfx.api.project.ProjectRegistry;
 import org.openide.filesystems.FileObject;
 import org.openide.util.Lookup;
 
