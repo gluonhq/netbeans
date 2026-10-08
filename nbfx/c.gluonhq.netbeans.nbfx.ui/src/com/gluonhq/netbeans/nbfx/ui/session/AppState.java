@@ -15,6 +15,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
 import javafx.geometry.Orientation;
 import javafx.geometry.Rectangle2D;
@@ -96,8 +97,56 @@ public final class AppState {
     private volatile boolean showBreadcrumbs = true;
     private final AtomicBoolean saved = new AtomicBoolean();
 
+    /**
+     * Stable preferences path, independent of the module that owns this class, so the session
+     * survives the code moving between modules (it started in {@code nbfx.launcher} and now lives
+     * in {@code nbfx.ui}).
+     */
+    private static final String PREFS_PATH = "com/gluonhq/netbeans/nbfx/session";
+
+    /** Former module-keyed nodes, newest first, migrated from when the stable node is still empty. */
+    private static final String[] LEGACY_PREFS_PATHS = {
+        "com/gluonhq/netbeans/nbfx/ui",
+        "com/gluonhq/netbeans/nbfx/launcher",
+    };
+
     public AppState() {
-        this(NbPreferences.forModule(AppState.class));
+        this(stablePreferences());
+    }
+
+    private static Preferences stablePreferences() {
+        Preferences root = NbPreferences.root();
+        Preferences stable = root.node(PREFS_PATH);
+        migratePreferences(root, stable);
+        return stable;
+    }
+
+    /**
+     * Copies the legacy module-keyed preferences into {@code stable} the first time the stable node
+     * is empty. Oldest node first so the newer node's layout wins, while the older node's project
+     * list (which the newer node lacks) is still carried over.
+     */
+    private static void migratePreferences(Preferences root, Preferences stable) {
+        try {
+            if (stable.keys().length > 0 || stable.childrenNames().length > 0) {
+                return;
+            }
+            for (int i = LEGACY_PREFS_PATHS.length - 1; i >= 0; i--) {
+                copyPreferences(root.node(LEGACY_PREFS_PATHS[i]), stable);
+            }
+        } catch (BackingStoreException ex) {
+            LOG.log(Level.WARNING, "Could not migrate the legacy preferences", ex);
+        }
+    }
+
+    private static void copyPreferences(Preferences from, Preferences to) throws BackingStoreException {
+        for (String key : from.keys()) {
+            to.put(key, from.get(key, ""));
+        }
+        for (String child : from.childrenNames()) {
+            copyPreferences(from.node(child), to.node(child));
+        }
+        to.flush();
     }
 
     public AppState(Preferences prefs) {
