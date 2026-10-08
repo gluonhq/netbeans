@@ -24,7 +24,9 @@ import java.util.Objects;
 import java.util.logging.Logger;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.SeparatorMenuItem;
+import javafx.scene.input.KeyCombination;
 import org.openide.filesystems.FileObject;
+import org.openide.util.Lookup;
 
 /**
  * Builds JavaFX menu items from the action references contributed to a menu surface, resolving each
@@ -81,11 +83,19 @@ public final class LayerMenuBuilder {
 
     private MenuItem item(Command command) {
         MenuItem item = new MenuItem(command.getText());
-        if (command.getAccelerator() != null) {
-            item.setAccelerator(command.getAccelerator());
+        KeyCombination accelerator = accelerator(command);
+        if (accelerator != null) {
+            item.setAccelerator(accelerator);
         }
         item.disableProperty().bind(command.disabledProperty());
         item.setOnAction(_ -> command.run());
         return item;
+    }
+
+    /** The command's accelerator, overridden by the user {@link KeyMap} when one is registered. */
+    private static KeyCombination accelerator(Command command) {
+        KeyMap keyMap = Lookup.getDefault().lookup(KeyMap.class);
+        return keyMap == null ? command.getAccelerator()
+                : keyMap.accelerator(command.getId(), command.getAccelerator());
     }
 }
