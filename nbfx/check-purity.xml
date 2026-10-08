@@ -37,6 +37,8 @@
     <property name="nbfx.purity.strict" value="false"/>
     <property name="nbfx.src.pattern" value="*/src/**/*.java"/>
     <property name="nbfx.deps.pattern" value="*/nbproject/project.xml"/>
+    <property name="nbfx.jar.pattern" value="com-gluonhq-netbeans-nbfx-*.jar"/>
+    <property name="nbfx.jar.dir" value="../nbbuild/netbeans/nbfx/modules"/>
 
     <!-- Forbidden imports in nbfx sources. -->
     <target name="check-sources">
@@ -90,14 +92,32 @@
         <echo message="[purity] forbidden-dependency violations: ${dep.violations}"/>
     </target>
 
-    <target name="check-purity" depends="check-sources,check-dependencies">
-        <fail message="[purity] ${src.violations} forbidden import(s) and ${dep.violations} forbidden dependency(ies) found under nbfx;">
+    <!-- Forbidden bundled classes in the built nbfx JARs (Swing/AWT). -->
+    <target name="check-jars">
+        <apply executable="${java.home}/bin/jar" outputproperty="nbfx.jar.contents"
+               failonerror="false" parallel="false" dir="${basedir}">
+            <fileset dir="${nbfx.jar.dir}" includes="${nbfx.jar.pattern}"/>
+            <arg value="tf"/>
+            <srcfile/>
+        </apply>
+        <condition property="jar.violations" value="1" else="0">
+            <or>
+                <contains string="${nbfx.jar.contents}" substring="javax/swing/"/>
+                <contains string="${nbfx.jar.contents}" substring="java/awt/"/>
+            </or>
+        </condition>
+        <echo message="[purity] forbidden bundled-class violations: ${jar.violations}"/>
+    </target>
+
+    <target name="check-purity" depends="check-sources,check-dependencies,check-jars">
+        <fail message="[purity] ${src.violations} forbidden import(s), ${dep.violations} forbidden dependency(ies) and ${jar.violations} forbidden bundled-class violation(s) found under nbfx;">
             <condition>
                 <and>
                     <equals arg1="${nbfx.purity.strict}" arg2="true"/>
                     <or>
                         <not><equals arg1="${src.violations}" arg2="0"/></not>
                         <not><equals arg1="${dep.violations}" arg2="0"/></not>
+                        <not><equals arg1="${jar.violations}" arg2="0"/></not>
                     </or>
                 </and>
             </condition>
