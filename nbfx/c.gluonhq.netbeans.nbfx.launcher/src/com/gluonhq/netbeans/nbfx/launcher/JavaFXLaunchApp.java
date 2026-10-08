@@ -372,7 +372,13 @@ public class JavaFXLaunchApp extends Application {
         // in; opening a project then redistributes them (restoreLayout). This keeps every navigator
         // view reachable even when no project is ever opened.
         AppState.Layout layout = sessionRestorer.startupLayout();
+        // On the first run there is no persisted layout, so the order and the set of navigators come
+        // from the layer (position and navigator flag declared with @FxViewRegistration); afterwards
+        // the persisted order, which the user arranged, wins.
         List<String> order = navigatorIdsOf(layout);
+        if (layout.isEmpty()) {
+            order = registeredNavigatorIds();
+        }
         for (NavigatorProvider provider : orderedProviders(order)) {
             // A provider missing from a persisted layout was closed by the user; Reset Windows brings
             // it back. Only the absence of any layout at all (first run) docks every provider - an
@@ -402,6 +408,21 @@ public class JavaFXLaunchApp extends Application {
                 if (tab.kind() == AppState.TabKind.VIEW) {
                     ids.add(tab.id());
                 }
+            }
+        }
+        return ids;
+    }
+
+    /**
+     * The ids of the navigators registered in the layer, in declared position order, so the first
+     * run docks them where {@code @FxViewRegistration} says. Views that are not navigators, and
+     * navigators not declared in the layer, are not included.
+     */
+    private static List<String> registeredNavigatorIds() {
+        List<String> ids = new ArrayList<>();
+        for (ViewRegistration registration : ViewRegistry.discover()) {
+            if (registration.navigator() && registration.view() instanceof NavigatorProvider) {
+                ids.add(registration.id());
             }
         }
         return ids;
