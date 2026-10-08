@@ -44,6 +44,8 @@ public final class BuildCommandsProvider implements CommandsProvider {
         return List.of(
                 new BuildCommand(projects, ActionIds.BUILD, message("BuildCommand.build"),
                         BuildTool.Action.BUILD),
+                new BuildCommand(projects, ActionIds.CLEAN_BUILD, message("BuildCommand.cleanBuild"),
+                        BuildTool.Action.CLEAN_BUILD),
                 new BuildCommand(projects, ActionIds.CLEAN, message("BuildCommand.clean"),
                         BuildTool.Action.CLEAN),
                 new BuildCommand(projects, ActionIds.TEST, message("BuildCommand.test"),

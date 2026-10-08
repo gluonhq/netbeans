@@ -55,8 +55,9 @@ public final class BuildContextMenuContributor implements FileContextMenuContrib
                 continue;
             }
             String base = folder.getName();
-            List<MenuItem> items = new ArrayList<>(4);
+            List<MenuItem> items = new ArrayList<>(5);
             items.add(item("BuildCommand.build", dir, BuildTool.Action.BUILD, base));
+            items.add(item("BuildCommand.cleanBuild", dir, BuildTool.Action.CLEAN_BUILD, base));
             items.add(item("BuildCommand.clean", dir, BuildTool.Action.CLEAN, base));
             items.add(item("BuildCommand.test", dir, BuildTool.Action.TEST, base));
             items.add(item("BuildCommand.run", dir, BuildTool.Action.RUN, base));

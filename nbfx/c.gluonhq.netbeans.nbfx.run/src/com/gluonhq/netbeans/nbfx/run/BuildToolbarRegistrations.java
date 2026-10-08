@@ -20,6 +20,7 @@ package com.gluonhq.netbeans.nbfx.run;
 
 import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.BUILD;
 import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.CLEAN;
+import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.CLEAN_BUILD;
 import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.RUN;
 import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.TEST;
 
@@ -33,9 +34,10 @@ import com.gluonhq.netbeans.nbfx.annotations.FxActionReference;
  * This class carries metadata only; it is never instantiated.
  */
 @FxActionReference(id = BUILD, path = "Toolbars/Build", position = 10)
-@FxActionReference(id = CLEAN, path = "Toolbars/Build", position = 20)
-@FxActionReference(id = TEST, path = "Toolbars/Build", position = 30)
-@FxActionReference(id = RUN, path = "Toolbars/Build", position = 40)
+@FxActionReference(id = CLEAN_BUILD, path = "Toolbars/Build", position = 20)
+@FxActionReference(id = CLEAN, path = "Toolbars/Build", position = 30)
+@FxActionReference(id = TEST, path = "Toolbars/Build", position = 40)
+@FxActionReference(id = RUN, path = "Toolbars/Build", position = 50)
 final class BuildToolbarRegistrations {
 
     private BuildToolbarRegistrations() {

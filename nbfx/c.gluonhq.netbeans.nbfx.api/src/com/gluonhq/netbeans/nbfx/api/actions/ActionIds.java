@@ -118,6 +118,9 @@ public final class ActionIds {
     /** Builds the selected project with its build tool. */
     public static final String BUILD = "build";
 
+    /** Cleans and then builds the selected project. */
+    public static final String CLEAN_BUILD = "cleanBuild";
+
     /** Cleans the selected project's build output. */
     public static final String CLEAN = "clean";
 

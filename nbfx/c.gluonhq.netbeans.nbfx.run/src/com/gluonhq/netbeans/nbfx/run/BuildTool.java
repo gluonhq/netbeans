@@ -47,6 +47,8 @@ public enum BuildTool {
     public enum Action {
         /** Compiles and packages the project. */
         BUILD,
+        /** Cleans the build output and then builds the project. */
+        CLEAN_BUILD,
         /** Removes the build output. */
         CLEAN,
         /** Runs the project's tests. */
@@ -97,35 +99,35 @@ public enum BuildTool {
     }
 
     private static List<String> maven(Path dir, Action action) {
-        List<String> goals = action == Action.RUN
-                ? List.of("compile", "exec:java")
-                : List.of(switch (action) {
-                    case BUILD -> "package";
-                    case CLEAN -> "clean";
-                    case TEST -> "test";
-                    case RUN -> "exec:java";
-                });
+        List<String> goals = switch (action) {
+            case BUILD -> List.of("package");
+            case CLEAN_BUILD -> List.of("clean", "package");
+            case CLEAN -> List.of("clean");
+            case TEST -> List.of("test");
+            case RUN -> List.of("compile", "exec:java");
+        };
         return prepend(executable(dir, "mvnw", "mvn"), goals);
     }
 
     private static List<String> gradle(Path dir, Action action) {
-        String goal = switch (action) {
-            case BUILD -> "build";
-            case CLEAN -> "clean";
-            case TEST -> "test";
-            case RUN -> "run";
+        String executable = executable(dir, "gradlew", "gradle");
+        return switch (action) {
+            case BUILD -> List.of(executable, "build");
+            case CLEAN_BUILD -> List.of(executable, "clean", "build");
+            case CLEAN -> List.of(executable, "clean");
+            case TEST -> List.of(executable, "test");
+            case RUN -> List.of(executable, "run");
         };
-        return List.of(executable(dir, "gradlew", "gradle"), goal);
     }
 
     private static List<String> ant(Action action) {
-        String goal = switch (action) {
-            case BUILD -> "jar";
-            case CLEAN -> "clean";
-            case TEST -> "test";
-            case RUN -> "run";
+        return switch (action) {
+            case BUILD -> List.of("ant", "jar");
+            case CLEAN_BUILD -> List.of("ant", "clean", "jar");
+            case CLEAN -> List.of("ant", "clean");
+            case TEST -> List.of("ant", "test");
+            case RUN -> List.of("ant", "run");
         };
-        return List.of("ant", goal);
     }
 
     private static List<String> prepend(String head, List<String> tail) {

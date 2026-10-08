@@ -20,6 +20,7 @@ package com.gluonhq.netbeans.nbfx.run;
 
 import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.BUILD;
 import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.CLEAN;
+import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.CLEAN_BUILD;
 import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.RUN;
 import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.TEST;
 
@@ -32,9 +33,10 @@ import com.gluonhq.netbeans.nbfx.annotations.FxActionReference;
  * This class carries metadata only; it is never instantiated.
  */
 @FxActionReference(id = BUILD, path = "Menus/Build", position = 10)
-@FxActionReference(id = CLEAN, path = "Menus/Build", position = 20, separatorBefore = true)
-@FxActionReference(id = TEST, path = "Menus/Build", position = 30, separatorBefore = true)
-@FxActionReference(id = RUN, path = "Menus/Build", position = 40, separatorBefore = true)
+@FxActionReference(id = CLEAN_BUILD, path = "Menus/Build", position = 20)
+@FxActionReference(id = CLEAN, path = "Menus/Build", position = 30, separatorBefore = true)
+@FxActionReference(id = TEST, path = "Menus/Build", position = 40, separatorBefore = true)
+@FxActionReference(id = RUN, path = "Menus/Build", position = 50, separatorBefore = true)
 final class BuildMenuRegistrations {
 
     private BuildMenuRegistrations() {
