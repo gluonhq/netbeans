@@ -71,4 +71,28 @@ public class BuildToolTest {
     public void unknownHasNoCommand() {
         assertEquals(null, BuildTool.UNKNOWN.commandLine(null, BuildTool.Action.BUILD));
     }
+
+    @Test
+    public void antCommands() throws Exception {
+        Path dir = Files.createTempDirectory("nbfx-ant");
+        Files.writeString(dir.resolve("build.xml"), "<project/>");
+        assertEquals(List.of("ant", "jar"), BuildTool.ANT.commandLine(dir, BuildTool.Action.BUILD));
+        assertEquals(List.of("ant", "clean", "jar"), BuildTool.ANT.commandLine(dir, BuildTool.Action.CLEAN_BUILD));
+        assertEquals(List.of("ant", "clean"), BuildTool.ANT.commandLine(dir, BuildTool.Action.CLEAN));
+        assertEquals(List.of("ant", "test"), BuildTool.ANT.commandLine(dir, BuildTool.Action.TEST));
+        assertEquals(List.of("ant", "run"), BuildTool.ANT.commandLine(dir, BuildTool.Action.RUN));
+    }
+
+    @Test
+    public void netbeansModuleAntCommands() throws Exception {
+        Path dir = Files.createTempDirectory("nbfx-module");
+        Files.writeString(dir.resolve("build.xml"), "<project/>");
+        Files.createDirectories(dir.resolve("nbproject"));
+        Files.writeString(dir.resolve("nbproject").resolve("project.xml"), "<project/>");
+        assertEquals(List.of("ant", "build"), BuildTool.ANT.commandLine(dir, BuildTool.Action.BUILD));
+        assertEquals(List.of("ant", "clean", "build"), BuildTool.ANT.commandLine(dir, BuildTool.Action.CLEAN_BUILD));
+        assertEquals(List.of("ant", "clean"), BuildTool.ANT.commandLine(dir, BuildTool.Action.CLEAN));
+        assertEquals(List.of("ant", "test-unit"), BuildTool.ANT.commandLine(dir, BuildTool.Action.TEST));
+        assertEquals(List.of("ant", "run"), BuildTool.ANT.commandLine(dir, BuildTool.Action.RUN));
+    }
 }

@@ -93,7 +93,7 @@ public enum BuildTool {
         return switch (this) {
             case MAVEN -> maven(dir, action);
             case GRADLE -> gradle(dir, action);
-            case ANT -> ant(action);
+            case ANT -> ant(dir, action);
             case UNKNOWN -> null;
         };
     }
@@ -120,7 +120,23 @@ public enum BuildTool {
         };
     }
 
-    private static List<String> ant(Action action) {
+    /**
+     * Ant targets, mirroring the original NetBeans {@code ModuleActions}: a NetBeans module
+     * (apisupport) project — recognised by its {@code nbproject/project.xml} — uses the harness
+     * targets ({@code build}, {@code clean}, {@code test-unit}, {@code run}), while a plain Ant
+     * project uses the conventional {@code jar}/{@code test}/{@code run}.
+     */
+    private static List<String> ant(Path dir, Action action) {
+        boolean netbeansModule = Files.isRegularFile(dir.resolve("nbproject").resolve("project.xml"));
+        if (netbeansModule) {
+            return switch (action) {
+                case BUILD -> List.of("ant", "build");
+                case CLEAN_BUILD -> List.of("ant", "clean", "build");
+                case CLEAN -> List.of("ant", "clean");
+                case TEST -> List.of("ant", "test-unit");
+                case RUN -> List.of("ant", "run");
+            };
+        }
         return switch (action) {
             case BUILD -> List.of("ant", "jar");
             case CLEAN_BUILD -> List.of("ant", "clean", "jar");
