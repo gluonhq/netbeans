@@ -99,6 +99,10 @@ public final class ActionBars {
         ICONS.put(ActionIds.REDO, "redo24.png");
         ICONS.put(ActionIds.SELECT_PROJECTS, "projectTab.png");
         ICONS.put(ActionIds.SELECT_FILES, "filesTab.png");
+        ICONS.put(ActionIds.BUILD, "build.png");
+        ICONS.put(ActionIds.CLEAN, "clean24.gif");
+        ICONS.put(ActionIds.TEST, "test.png");
+        ICONS.put(ActionIds.RUN, "run.png");
     }
 
     private final ActionRegistry registry;
