@@ -1,0 +1,76 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package com.gluonhq.netbeans.nbfx.launcher.actions;
+
+import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.COPY;
+import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.CUT;
+import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.FIND;
+import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.FIND_IN_PROJECTS;
+import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.FIND_NEXT;
+import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.FIND_PREVIOUS;
+import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.FIND_SELECTION;
+import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.FIND_USAGES;
+import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.NEW_PROJECT;
+import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.OPEN_PROJECT;
+import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.PASTE;
+import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.REDO;
+import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.REPLACE;
+import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.REPLACE_IN_PROJECTS;
+import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.SAVE;
+import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.SAVE_ALL;
+import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.UNDO;
+
+import com.gluonhq.netbeans.nbfx.annotations.FxActionReference;
+
+/**
+ * Declares the main window's Edit menu entries and tool bar contents in the layer, so the UI is
+ * assembled from registrations rather than hard-coded id lists. The processor turns each reference
+ * into an {@code NbFx/Menus/Edit/*.ref} or {@code NbFx/Toolbars/<bar>/*.ref} layer entry that
+ * {@link ActionBars} reads.
+ * <p>
+ * This class carries metadata only; it is never instantiated.
+ */
+@FxActionReference(id = UNDO, path = "Menus/Edit", position = 10)
+@FxActionReference(id = REDO, path = "Menus/Edit", position = 20)
+@FxActionReference(id = CUT, path = "Menus/Edit", position = 30, separatorBefore = true)
+@FxActionReference(id = COPY, path = "Menus/Edit", position = 40)
+@FxActionReference(id = PASTE, path = "Menus/Edit", position = 50)
+@FxActionReference(id = FIND_SELECTION, path = "Menus/Edit", position = 60, separatorBefore = true)
+@FxActionReference(id = FIND_NEXT, path = "Menus/Edit", position = 70)
+@FxActionReference(id = FIND_PREVIOUS, path = "Menus/Edit", position = 80)
+@FxActionReference(id = FIND, path = "Menus/Edit", position = 90, separatorBefore = true)
+@FxActionReference(id = REPLACE, path = "Menus/Edit", position = 100)
+@FxActionReference(id = FIND_IN_PROJECTS, path = "Menus/Edit", position = 110)
+@FxActionReference(id = REPLACE_IN_PROJECTS, path = "Menus/Edit", position = 120)
+@FxActionReference(id = FIND_USAGES, path = "Menus/Edit", position = 130, separatorBefore = true)
+@FxActionReference(id = NEW_PROJECT, path = "Toolbars/File", position = 10)
+@FxActionReference(id = OPEN_PROJECT, path = "Toolbars/File", position = 20)
+@FxActionReference(id = SAVE, path = "Toolbars/File", position = 30)
+@FxActionReference(id = SAVE_ALL, path = "Toolbars/File", position = 40)
+@FxActionReference(id = CUT, path = "Toolbars/Clipboard", position = 10)
+@FxActionReference(id = COPY, path = "Toolbars/Clipboard", position = 20)
+@FxActionReference(id = PASTE, path = "Toolbars/Clipboard", position = 30)
+@FxActionReference(id = FIND, path = "Toolbars/Clipboard", position = 40)
+@FxActionReference(id = UNDO, path = "Toolbars/Edit", position = 10)
+@FxActionReference(id = REDO, path = "Toolbars/Edit", position = 20)
+final class MenuRegistrations {
+
+    private MenuRegistrations() {
+    }
+}

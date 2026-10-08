@@ -8,9 +8,11 @@ import com.gluonhq.netbeans.nbfx.launcher.ui.TabContextMenu;
 import com.gluonhq.netbeans.nbfx.launcher.ui.ToolBarContainer;
 
 import com.gluonhq.netbeans.nbfx.api.actions.ActionIds;
+import com.gluonhq.netbeans.nbfx.api.actions.ActionLayerReader;
 import com.gluonhq.netbeans.nbfx.api.actions.ActionRegistry;
 import com.gluonhq.netbeans.nbfx.api.actions.Command;
 import com.gluonhq.netbeans.nbfx.api.actions.EditorContextMenuIds;
+import com.gluonhq.netbeans.nbfx.api.actions.FxActionRef;
 import com.gluonhq.netbeans.nbfx.api.editor.EditorDocument;
 import com.gluonhq.netbeans.nbfx.api.editor.EditorSettings;
 import com.gluonhq.netbeans.nbfx.api.project.OpenProject;
@@ -445,6 +447,22 @@ public final class ActionBars {
      */
     private Menu createEditMenu(ObservableValue<EditorDocument> scope, ObservableValue<Boolean> preferFile) {
         Menu editMenu = new Menu(message("Menu.edit"));
+        List<FxActionRef> refs = ActionLayerReader.read("NbFx/Menus/Edit");
+        if (!refs.isEmpty()) {
+            for (FxActionRef ref : refs) {
+                MenuItem item = createOptionalMenuItem(ref.actionId(), scope, preferFile);
+                if (item == null) {
+                    continue;
+                }
+                if (ref.separatorBefore() && !editMenu.getItems().isEmpty()
+                        && !(editMenu.getItems().get(editMenu.getItems().size() - 1) instanceof SeparatorMenuItem)) {
+                    editMenu.getItems().add(new SeparatorMenuItem());
+                }
+                editMenu.getItems().add(item);
+            }
+            return editMenu;
+        }
+        // Fallback while the layer registration is unavailable.
         addMenuItems(editMenu,
                 createMenuItem(ActionIds.UNDO, scope, preferFile),
                 createMenuItem(ActionIds.REDO, scope, preferFile),
@@ -603,17 +621,32 @@ public final class ActionBars {
      * @return the tool bar container for the top area
      */
     public ToolBarContainer createToolBars(ObservableValue<EditorDocument> mainScope) {
-        ToolBar fileBar = createToolBar("file", mainScope, treeFocused, ActionIds.NEW_PROJECT, ActionIds.OPEN_PROJECT,
-                ActionIds.SAVE, ActionIds.SAVE_ALL);
-        ToolBar clipboardBar = createToolBar("clipboard", mainScope, treeFocused, ActionIds.CUT, ActionIds.COPY, ActionIds.PASTE,
-                ActionIds.FIND);
-        ToolBar editBar = createToolBar("edit", mainScope, treeFocused, ActionIds.UNDO, ActionIds.REDO);
+        ToolBar fileBar = createToolBar("file", mainScope, treeFocused,
+                toolbarCommandIds("File", ActionIds.NEW_PROJECT, ActionIds.OPEN_PROJECT,
+                        ActionIds.SAVE, ActionIds.SAVE_ALL));
+        ToolBar clipboardBar = createToolBar("clipboard", mainScope, treeFocused,
+                toolbarCommandIds("Clipboard", ActionIds.CUT, ActionIds.COPY, ActionIds.PASTE,
+                        ActionIds.FIND));
+        ToolBar editBar = createToolBar("edit", mainScope, treeFocused,
+                toolbarCommandIds("Edit", ActionIds.UNDO, ActionIds.REDO));
         toolBarContainer = new ToolBarContainer(fileBar, clipboardBar, editBar);
         return toolBarContainer;
     }
 
+    /**
+     * The command ids of the tool bar {@code id} (for example {@code "File"}), read from the layer,
+     * or the {@code fallback} ids while the layer registration is unavailable.
+     */
+    private static List<String> toolbarCommandIds(String id, String... fallback) {
+        List<FxActionRef> refs = ActionLayerReader.read("NbFx/Toolbars/" + id);
+        if (refs.isEmpty()) {
+            return List.of(fallback);
+        }
+        return refs.stream().map(FxActionRef::actionId).toList();
+    }
+
     private ToolBar createToolBar(String id, ObservableValue<EditorDocument> scope,
-            ObservableValue<Boolean> preferFile, String... commandIds) {
+            ObservableValue<Boolean> preferFile, List<String> commandIds) {
         ToolBar toolBar = new ToolBar();
         toolBar.setId(id);
         toolBar.getItems().add(createDragHandle());
@@ -667,13 +700,18 @@ public final class ActionBars {
     }
 
     private void addButtons(ToolBar toolBar, ObservableValue<EditorDocument> scope,
-            ObservableValue<Boolean> preferFile, String... commandIds) {
+            ObservableValue<Boolean> preferFile, List<String> commandIds) {
         for (String commandId : commandIds) {
             Button button = createButton(commandId, scope, preferFile);
             if (button != null) {
                 toolBar.getItems().add(button);
             }
         }
+    }
+
+    private void addButtons(ToolBar toolBar, ObservableValue<EditorDocument> scope,
+            ObservableValue<Boolean> preferFile, String... commandIds) {
+        addButtons(toolBar, scope, preferFile, List.of(commandIds));
     }
 
     private Button createDragHandle() {
