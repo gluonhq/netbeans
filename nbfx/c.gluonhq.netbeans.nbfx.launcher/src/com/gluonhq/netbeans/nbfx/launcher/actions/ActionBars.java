@@ -104,6 +104,7 @@ public final class ActionBars {
         ICONS.put(ActionIds.CLEAN, "clean24.gif");
         ICONS.put(ActionIds.TEST, "test.png");
         ICONS.put(ActionIds.RUN, "run.png");
+        ICONS.put(ActionIds.DEBUG_FILE, "debug.png");
     }
 
     private final ActionRegistry registry;
@@ -291,12 +292,16 @@ public final class ActionBars {
         Menu editMenu = createEditMenu(mainScope, treeFocused);
         Menu viewMenu = createViewMenu();
         Menu buildMenu = createBuildMenu(mainScope);
+        Menu debugMenu = createDebugMenu(mainScope);
         Menu windowMenu = createWindowMenu(mainScope);
 
         Menu helpMenu = new Menu(message("Menu.help"));
         List<Menu> menus = new ArrayList<>(List.of(fileMenu, editMenu, viewMenu));
         if (buildMenu != null) {
             menus.add(buildMenu);
+        }
+        if (debugMenu != null) {
+            menus.add(debugMenu);
         }
         menus.add(windowMenu);
         menus.add(helpMenu);
@@ -325,6 +330,27 @@ public final class ActionBars {
             buildMenu.getItems().add(item);
         }
         return buildMenu.getItems().isEmpty() ? null : buildMenu;
+    }
+
+    /**
+     * Builds the Debug menu from the {@code NbFx/Menus/Debug} layer entries, or {@code null} when no
+     * debug commands are registered (the module that provides them may not be present).
+     */
+    private Menu createDebugMenu(ObservableValue<EditorDocument> mainScope) {
+        List<FxActionRef> refs = ActionLayerReader.read("NbFx/Menus/Debug");
+        if (refs.isEmpty()) {
+            return null;
+        }
+        Menu debugMenu = new Menu(message("Menu.debug"));
+        for (FxActionRef ref : refs) {
+            MenuItem item = createOptionalMenuItem(ref.actionId(), mainScope, null);
+            if (item == null) {
+                continue;
+            }
+            addSeparatorIfNeeded(debugMenu, ref);
+            debugMenu.getItems().add(item);
+        }
+        return debugMenu.getItems().isEmpty() ? null : debugMenu;
     }
 
     /**
@@ -721,6 +747,11 @@ public final class ActionBars {
         List<String> buildCommands = toolbarCommandIds("Build");
         if (!buildCommands.isEmpty()) {
             bars.add(createToolBar("Build", mainScope, treeFocused, buildCommands));
+        }
+        // The Debug bar comes entirely from the layer too.
+        List<String> debugCommands = toolbarCommandIds("Debug");
+        if (!debugCommands.isEmpty()) {
+            bars.add(createToolBar("Debug", mainScope, treeFocused, debugCommands));
         }
         toolBarContainer = new ToolBarContainer(bars.toArray(ToolBar[]::new));
         return toolBarContainer;

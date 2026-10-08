@@ -124,6 +124,27 @@ public final class ActionIds {
 
     /** Shows and selects the Git view (Window menu). */
     public static final String SELECT_GIT = "selectGit";
+
+    /** Debugs the active file. */
+    public static final String DEBUG_FILE = "debugFile";
+
+    /** Toggles a breakpoint on the active editor's current line. */
+    public static final String TOGGLE_BREAKPOINT = "toggleBreakpoint";
+
+    /** Resumes the running debug session. */
+    public static final String DEBUG_CONTINUE = "debugContinue";
+
+    /** Steps over in the running debug session. */
+    public static final String DEBUG_STEP_OVER = "debugStepOver";
+
+    /** Steps into in the running debug session. */
+    public static final String DEBUG_STEP_INTO = "debugStepInto";
+
+    /** Steps out in the running debug session. */
+    public static final String DEBUG_STEP_OUT = "debugStepOut";
+
+    /** Stops the running debug session. */
+    public static final String DEBUG_STOP = "debugStop";
     /** Find... on a folder of the Projects view: opens the search dialog scoped to the selected folders. */
     public static final String FILE_FIND = "file.find";
 
