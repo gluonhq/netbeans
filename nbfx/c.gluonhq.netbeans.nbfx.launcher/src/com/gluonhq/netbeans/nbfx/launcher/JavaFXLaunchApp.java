@@ -27,6 +27,7 @@ import com.gluonhq.netbeans.nbfx.launcher.ui.WindowTitles;
 import com.gluonhq.netbeans.nbfx.statusbar.FxStatusBar;
 import com.gluonhq.netbeans.nbfx.statusbar.StatusElement;
 import com.gluonhq.netbeans.nbfx.statusbar.StatusElementRegistry;
+import com.gluonhq.netbeans.nbfx.windows.WindowEnvironment;
 
 import com.gluonhq.netbeans.nbfx.api.ContentManager;
 import com.gluonhq.netbeans.nbfx.api.editor.EditorContext;
@@ -163,19 +164,21 @@ public class JavaFXLaunchApp extends Application {
         ToolBarContainer toolBars = actionBars.createToolBars(mainScope);
         VBox topBars = new VBox(actionBars.createMenuBar(mainScope), toolBars);
         borderPane.setTop(topBars);
-        // Pass actionBars to the detached windows, to have their own scoped menu/tool bars
-        NbfxTabPane.setActionBars(actionBars);
-        // Let detached editor windows reveal their selected file in the main window's navigator.
-        NbfxTabPane.setNavigatorRevealer(this::revealFileInNavigator);
-        // Where a tab docks back from a detached window: editors to the editor pane (or wherever the
-        // editors are while it is hidden), views to their default location.
-        NbfxTabPane.setHomeResolver(tab -> {
-            if (NbfxTabPane.documentOf(tab) != null) {
-                TabPane mainPane = contentManager() instanceof ContentManagerImpl cmi ? (TabPane) cmi.getMainPane() : null;
-                return mainPane == null ? null : NbfxTabPane.editorDockHome(mainPane, Lookup.getDefault().lookup(EditorContext.class));
-            }
-            return homeOfView(tab);
-        });
+        // Give the window system the host services it needs: the bars for detached windows, the
+        // navigator revealer, and where a tab docks back (editors to the editor pane or wherever the
+        // editors are while it is hidden, views to their default location).
+        WindowEnvironmentImpl windowEnvironment = windowEnvironment();
+        if (windowEnvironment != null) {
+            windowEnvironment.setActionBars(actionBars);
+            windowEnvironment.setNavigatorRevealer(this::revealFileInNavigator);
+            windowEnvironment.setHomeResolver(tab -> {
+                if (NbfxTabPane.documentOf(tab) != null) {
+                    TabPane mainPane = contentManager() instanceof ContentManagerImpl cmi ? (TabPane) cmi.getMainPane() : null;
+                    return mainPane == null ? null : NbfxTabPane.editorDockHome(mainPane, Lookup.getDefault().lookup(EditorContext.class));
+                }
+                return homeOfView(tab);
+            });
+        }
 
         projectElement = new ProjectStatusElement();
         caretElement = new CaretStatusElement();
@@ -224,7 +227,9 @@ public class JavaFXLaunchApp extends Application {
         NbfxTabPane.installNavigatorRevealShortcut(scene, this::activeEditorFile);
         // Project switching must work wherever the focus is, including the navigator tree, whose own
         // arrow-key handling would otherwise swallow the menu accelerator.
-        NbfxTabPane.setProjectSwitcher(projectSwitcher);
+        if (windowEnvironment != null) {
+            windowEnvironment.setProjectSwitcher(projectSwitcher);
+        }
         NbfxTabPane.installProjectSwitchShortcut(scene);
         stage.setTitle(WindowTitles.of(projectRegistry.getSelected()));
         projectRegistry.selectedProjectProperty().subscribe(project -> {
@@ -562,7 +567,7 @@ public class JavaFXLaunchApp extends Application {
             return;
         }
         NavigatorProvider provider = list.get(index);
-        NbfxTabPane.setNavigatorRevealInProgress(true);
+        setNavigatorRevealInProgress(true);
         selectNavigator(provider.getId(), false);
         provider.revealFile(file);
         Platform.runLater(() -> focusNavigatorView(provider.getView()));
@@ -578,7 +583,7 @@ public class JavaFXLaunchApp extends Application {
      */
     private void focusNavigatorView(Node view) {
         if (view == null) {
-            NbfxTabPane.setNavigatorRevealInProgress(false);
+            setNavigatorRevealInProgress(false);
             return;
         }
         if (stage != null) {
@@ -590,7 +595,7 @@ public class JavaFXLaunchApp extends Application {
             public void changed(ObservableValue<? extends Boolean> obs, Boolean was, Boolean isFocused) {
                 if (isFocused) {
                     view.focusedProperty().removeListener(this);
-                    NbfxTabPane.setNavigatorRevealInProgress(false);
+                    setNavigatorRevealInProgress(false);
                 }
             }
         };
@@ -598,7 +603,7 @@ public class JavaFXLaunchApp extends Application {
         view.requestFocus();
         Platform.runLater(() -> {
             view.focusedProperty().removeListener(onFocused);
-            NbfxTabPane.setNavigatorRevealInProgress(false);
+            setNavigatorRevealInProgress(false);
         });
     }
 
@@ -741,6 +746,24 @@ public class JavaFXLaunchApp extends Application {
         java.util.logging.Logger.getLogger("org.openide.util.Lookup").setLevel(java.util.logging.Level.FINEST);
         java.util.logging.Logger.getLogger("org.openide.util.lookup.MetaInfServicesLookup").setLevel(java.util.logging.Level.FINEST);
         java.util.logging.Logger.getLogger("org.netbeans.core.startup").setLevel(java.util.logging.Level.FINEST);
+    }
+
+    /** The application host services for the window system, or {@code null} if not registered. */
+    private static WindowEnvironmentImpl windowEnvironment() {
+        WindowEnvironment environment = Lookup.getDefault().lookup(WindowEnvironment.class);
+        if (environment instanceof WindowEnvironmentImpl impl) {
+            return impl;
+        }
+        LOG.warning("No WindowEnvironmentImpl found in the Lookup");
+        return null;
+    }
+
+    /** Marks a navigator reveal as in progress (or finished), so panes do not steal focus back. */
+    private void setNavigatorRevealInProgress(boolean inProgress) {
+        WindowEnvironmentImpl environment = windowEnvironment();
+        if (environment != null) {
+            environment.setNavigatorRevealInProgress(inProgress);
+        }
     }
 
     /** The registry of open projects, resolved from the Lookup or a local instance if the service is not registered. */
@@ -1153,7 +1176,7 @@ public class JavaFXLaunchApp extends Application {
         if (provider == null) {
             return;
         }
-        NbfxTabPane.setNavigatorRevealInProgress(true);
+        setNavigatorRevealInProgress(true);
         selectNavigator(provider.getId(), false);
         provider.revealFile(project.getRoot());
         Platform.runLater(() -> focusNavigatorView(provider.getView()));

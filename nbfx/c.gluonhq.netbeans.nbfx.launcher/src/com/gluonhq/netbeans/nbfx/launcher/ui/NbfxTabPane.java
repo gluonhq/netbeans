@@ -1,7 +1,5 @@
 package com.gluonhq.netbeans.nbfx.launcher.ui;
 
-import com.gluonhq.netbeans.nbfx.launcher.actions.ActionBars;
-import com.gluonhq.netbeans.nbfx.launcher.project.ProjectSwitcher;
 import com.gluonhq.netbeans.nbfx.launcher.session.CloseConfirmation;
 import com.gluonhq.netbeans.nbfx.launcher.session.DocumentCloser;
 
@@ -25,6 +23,7 @@ import com.gluonhq.netbeans.nbfx.api.editor.EditorContext;
 import com.gluonhq.netbeans.nbfx.api.editor.EditorDocument;
 import com.gluonhq.netbeans.nbfx.api.file.FileTypes;
 import com.gluonhq.netbeans.nbfx.api.view.ViewProvider;
+import com.gluonhq.netbeans.nbfx.windows.WindowEnvironment;
 import com.gluonhq.netbeans.nbfx.docking.DockArea;
 import com.gluonhq.netbeans.nbfx.docking.DropTarget;
 import com.gluonhq.netbeans.nbfx.file.actions.FileDragAndDrop;
@@ -56,6 +55,7 @@ import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.input.TransferMode;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.Region;
 import javafx.scene.paint.Color;
 import javafx.scene.transform.Transform;
 import javafx.stage.Stage;
@@ -149,31 +149,20 @@ public final class NbfxTabPane extends TabPane {
      */
     private static final Set<TabPane> PANES_PENDING_CLOSE = new LinkedHashSet<>();
 
-    /** The single {@link ActionBars} instance used to build each detached window's chrome; set by the launcher. */
-    private static ActionBars actionBars;
-
-    /** Reveals a file in the main window's navigator; set by the launcher so detached windows can use it. */
-    private static NavigatorRevealer navigatorRevealer;
-
-    /** Switches the selected project; set by the launcher so every window's shortcut can reach it. */
-    private static ProjectSwitcher projectSwitcher;
-
-    /** Bridges a detached window's reveal shortcut to the launcher's navigator (which lives only in the main window). */
-    @FunctionalInterface
-    public interface NavigatorRevealer {
-        void reveal(FileObject file, int index);
-    }
-
     /** Whether Shift / Alt was down on the most recent mouse press (read by editor close-button handling). */
     private static boolean lastPressShift;
     private static boolean lastPressAlt;
 
-    /**
-     * While {@code true}, a navigator reveal is moving keyboard focus into the tree, so a pane must not
-     * re-focus its selected editor when its window (re)gains focus. Without this, activating the main
-     * window during a reveal fired from a detached window would steal focus back to the editor.
-     */
-    private static boolean navigatorRevealInProgress;
+    /** The application host services the window system needs, or {@code null} if not registered yet. */
+    private static WindowEnvironment environment() {
+        return Lookup.getDefault().lookup(WindowEnvironment.class);
+    }
+
+    /** Whether a navigator reveal is moving focus into the navigator right now. */
+    private static boolean revealInProgress() {
+        WindowEnvironment environment = environment();
+        return environment != null && environment.isNavigatorRevealInProgress();
+    }
 
     static {
         TabDragOverlays.setDropHandler(NbfxTabPane::detachTabToNewWindow);
@@ -509,7 +498,7 @@ public final class NbfxTabPane extends TabPane {
                         // window gets this callback, so focusing unconditionally would hand focus
                         // to whichever pane subscribed last (the main one, as it is built after the
                         // navigator) on every activation, wherever the user had been working.
-                        if (!navigatorRevealInProgress && isLastFocused(tabPane)) {
+                        if (!revealInProgress() && isLastFocused(tabPane)) {
                             focusDocument(selectedTab);
                         }
                     }
@@ -929,10 +918,14 @@ public final class NbfxTabPane extends TabPane {
 
         BorderPane root = new BorderPane(newPane);
         List<Command> scopedCommands = new ArrayList<>();
-        if (actionBars != null) {
+        WindowEnvironment environment = environment();
+        if (environment != null) {
             ObservableValue<EditorDocument> activeDocument =
                     newPane.getSelectionModel().selectedItemProperty().map(NbfxTabPane::documentOf);
-            root.setTop(actionBars.createDetachedBars(activeDocument, scopedCommands));
+            Region bars = environment.createDetachedBars(activeDocument, scopedCommands);
+            if (bars != null) {
+                root.setTop(bars);
+            }
         }
 
         stage.setScene(new Scene(root, width, height));
@@ -955,43 +948,18 @@ public final class NbfxTabPane extends TabPane {
         return stage;
     }
 
-    /** Where each tab belongs by default (see {@link #setHomeResolver}); {@code null} until the launcher sets it. */
-    private static Function<Tab, TabPane> homeResolver;
-
-    /**
-     * Sets how the pane a tab belongs in by default is found - the editor pane for editors, the
-     * navigator pane or a view's default location for views - used when a tab is docked back from a
-     * detached window (the tab context menu's Dock / Dock Group).
-     */
-    public static void setHomeResolver(Function<Tab, TabPane> resolver) {
-        homeResolver = resolver;
-    }
-
     /** The pane {@code tab} belongs in by default, or {@code null} if unknown. */
     static TabPane homeOf(Tab tab) {
-        return homeResolver == null ? null : homeResolver.apply(tab);
+        WindowEnvironment environment = environment();
+        return environment == null ? null : environment.homeOf(tab);
     }
 
-    /** Sets the shared {@link ActionBars} used to build the menu bar and tool bars of each detached window. */
-    public static void setActionBars(ActionBars bars) {
-        actionBars = bars;
-    }
-
-    /** Sets the hook used by detached editor windows to reveal their selected file in the main navigator. */
-    public static void setNavigatorRevealer(NavigatorRevealer revealer) {
-        navigatorRevealer = revealer;
-    }
-
-    /** Reveals {@code file} in the navigator view at {@code index} (0 = Projects, 1 = Files), if a revealer is set. */
+    /** Reveals {@code file} in the navigator view at {@code index} (0 = Projects, 1 = Files), if the host supports it. */
     static void revealInNavigator(FileObject file, int index) {
-        if (navigatorRevealer != null && file != null) {
-            navigatorRevealer.reveal(file, index);
+        WindowEnvironment environment = environment();
+        if (environment != null) {
+            environment.revealInNavigator(file, index);
         }
-    }
-
-    /** Sets the switcher driving the Next/Previous Project shortcut in every window. */
-    public static void setProjectSwitcher(ProjectSwitcher switcher) {
-        projectSwitcher = switcher;
     }
 
     /**
@@ -1004,24 +972,24 @@ public final class NbfxTabPane extends TabPane {
      */
     public static void installProjectSwitchShortcut(Scene scene) {
         scene.addEventFilter(KeyEvent.KEY_PRESSED, event -> {
-            if (projectSwitcher == null
+            WindowEnvironment environment = environment();
+            if (environment == null
                     || !event.isShortcutDown() || !event.isAltDown() || event.isShiftDown()) {
                 return;
             }
             if (event.getCode() == KeyCode.RIGHT) {
-                projectSwitcher.next();
+                if (!environment.selectNextProject()) {
+                    return;
+                }
             } else if (event.getCode() == KeyCode.LEFT) {
-                projectSwitcher.previous();
+                if (!environment.selectPreviousProject()) {
+                    return;
+                }
             } else {
                 return;
             }
             event.consume();
         });
-    }
-
-    /** See {@link #navigatorRevealInProgress}: set while a reveal is moving focus into the navigator. */
-    public static void setNavigatorRevealInProgress(boolean inProgress) {
-        navigatorRevealInProgress = inProgress;
     }
 
     /**
@@ -1032,17 +1000,13 @@ public final class NbfxTabPane extends TabPane {
      */
     public static void installNavigatorRevealShortcut(Scene scene, Supplier<FileObject> fileSupplier) {
         scene.addEventFilter(KeyEvent.KEY_PRESSED, event -> {
-            if (navigatorRevealer == null
-                    || !event.isShortcutDown() || !event.isShiftDown() || event.isAltDown()) {
-                return;
-            }
             int index = event.getCode() == KeyCode.DIGIT1 ? 0 : event.getCode() == KeyCode.DIGIT2 ? 1 : -1;
-            if (index < 0) {
+            if (index < 0 || !event.isShortcutDown() || !event.isShiftDown() || event.isAltDown()) {
                 return;
             }
             FileObject file = fileSupplier.get();
-            if (file != null) {
-                navigatorRevealer.reveal(file, index);
+            WindowEnvironment environment = environment();
+            if (file != null && environment != null && environment.revealInNavigator(file, index)) {
                 event.consume();
             }
         });
