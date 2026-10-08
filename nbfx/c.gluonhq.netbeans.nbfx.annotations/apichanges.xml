@@ -16,17 +16,29 @@
             <description>
                 Introduces the SOURCE-retention annotations
                 <code>@FxActionRegistration</code>, <code>@FxActionReference</code>,
-                <code>@FxViewRegistration</code>, <code>@FxStatusRegistration</code> and
-                <code>@FxPropertyEditorRegistration</code>, the <code>FxLayer</code> layer-path
-                constants, and the corresponding layer-generating processors that write under the
-                <code>NbFx/</code> folder. The API is under development until the MVP freeze.
+                <code>@FxViewRegistration</code>, <code>@FxStatusRegistration</code>,
+                <code>@FxPropertyEditorRegistration</code>, <code>@FxOptionsRegistration</code>,
+                <code>@FxOptionsSubRegistration</code>, <code>@FxOptionsContainerRegistration</code>,
+                <code>@FxProjectTypeRegistration</code> and <code>@FxWizardRegistration</code>, the
+                <code>FxLayer</code> layer-path constants, the <code>FxViewLocation</code> and
+                <code>FxStatusAlignment</code> enums, and the corresponding layer-generating
+                processors that write under the <code>NbFx/</code> folder. The API is under
+                development until the MVP freeze.
             </description>
             <class package="com.gluonhq.netbeans.nbfx.annotations" name="FxLayer"/>
             <class package="com.gluonhq.netbeans.nbfx.annotations" name="FxActionRegistration"/>
             <class package="com.gluonhq.netbeans.nbfx.annotations" name="FxActionReference"/>
+            <class package="com.gluonhq.netbeans.nbfx.annotations" name="FxActionReferences"/>
             <class package="com.gluonhq.netbeans.nbfx.annotations" name="FxViewRegistration"/>
+            <class package="com.gluonhq.netbeans.nbfx.annotations" name="FxViewLocation"/>
             <class package="com.gluonhq.netbeans.nbfx.annotations" name="FxStatusRegistration"/>
+            <class package="com.gluonhq.netbeans.nbfx.annotations" name="FxStatusAlignment"/>
             <class package="com.gluonhq.netbeans.nbfx.annotations" name="FxPropertyEditorRegistration"/>
+            <class package="com.gluonhq.netbeans.nbfx.annotations" name="FxOptionsRegistration"/>
+            <class package="com.gluonhq.netbeans.nbfx.annotations" name="FxOptionsSubRegistration"/>
+            <class package="com.gluonhq.netbeans.nbfx.annotations" name="FxOptionsContainerRegistration"/>
+            <class package="com.gluonhq.netbeans.nbfx.annotations" name="FxProjectTypeRegistration"/>
+            <class package="com.gluonhq.netbeans.nbfx.annotations" name="FxWizardRegistration"/>
         </change>
     </changes>
     <htmlcontents>
