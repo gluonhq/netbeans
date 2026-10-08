@@ -42,9 +42,9 @@
     <target name="check-sources">
         <resourcecount property="src.violations">
             <fileset dir="${basedir}" includes="${nbfx.src.pattern}">
-                <!-- Quarantined bootstrap: hides the Swing main window until the window system is fully
+                <!-- Quarantined: hides the Swing main window until the window system is fully
                      replaced. Must not be used by any other nbfx code. -->
-                <exclude name="**/JavaFXLauncher.java"/>
+                <exclude name="**/SwingWindowSuppressor.java"/>
                 <!-- Headless expression SPI (AccessibilityQueryImplementation2.Result) uses the
                      javax.swing.event.ChangeListener listener type; no UI is involved. -->
                 <exclude name="**/ProjectModuleInfoAccessibilityQuery.java"/>
