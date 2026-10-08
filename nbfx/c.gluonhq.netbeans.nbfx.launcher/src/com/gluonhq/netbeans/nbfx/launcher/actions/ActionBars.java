@@ -705,15 +705,21 @@ public final class ActionBars {
      * @return the tool bar container for the top area
      */
     public ToolBarContainer createToolBars(ObservableValue<EditorDocument> mainScope) {
-        ToolBar fileBar = createToolBar("file", mainScope, treeFocused,
+        List<ToolBar> bars = new ArrayList<>();
+        bars.add(createToolBar("file", mainScope, treeFocused,
                 toolbarCommandIds("File", ActionIds.NEW_PROJECT, ActionIds.OPEN_PROJECT,
-                        ActionIds.SAVE, ActionIds.SAVE_ALL));
-        ToolBar clipboardBar = createToolBar("clipboard", mainScope, treeFocused,
+                        ActionIds.SAVE, ActionIds.SAVE_ALL)));
+        bars.add(createToolBar("clipboard", mainScope, treeFocused,
                 toolbarCommandIds("Clipboard", ActionIds.CUT, ActionIds.COPY, ActionIds.PASTE,
-                        ActionIds.FIND));
-        ToolBar editBar = createToolBar("edit", mainScope, treeFocused,
-                toolbarCommandIds("Edit", ActionIds.UNDO, ActionIds.REDO));
-        toolBarContainer = new ToolBarContainer(fileBar, clipboardBar, editBar);
+                        ActionIds.FIND)));
+        bars.add(createToolBar("edit", mainScope, treeFocused,
+                toolbarCommandIds("Edit", ActionIds.UNDO, ActionIds.REDO)));
+        // The Build bar comes entirely from the layer, so it is absent when no module registers it.
+        List<String> buildCommands = toolbarCommandIds("Build");
+        if (!buildCommands.isEmpty()) {
+            bars.add(createToolBar("Build", mainScope, treeFocused, buildCommands));
+        }
+        toolBarContainer = new ToolBarContainer(bars.toArray(ToolBar[]::new));
         return toolBarContainer;
     }
 

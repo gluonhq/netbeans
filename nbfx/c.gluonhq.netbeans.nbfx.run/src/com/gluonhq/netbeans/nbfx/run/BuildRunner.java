@@ -1,0 +1,54 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package com.gluonhq.netbeans.nbfx.run;
+
+import com.gluonhq.netbeans.nbfx.output.FxConsole;
+import com.gluonhq.netbeans.nbfx.output.FxOutput;
+import java.nio.file.Path;
+import java.util.List;
+import org.openide.util.NbBundle;
+
+/**
+ * Runs a build action for a project directory: detects the build tool, opens (and clears) the
+ * console named {@code consoleName}, and streams the tool's output into it. Shared by the Build
+ * menu command and the navigator context menu.
+ *
+ * @since 1.0
+ */
+final class BuildRunner {
+
+    private BuildRunner() {
+    }
+
+    static void run(Path dir, BuildTool.Action action, String consoleName, FxOutput output) {
+        if (dir == null || output == null) {
+            return;
+        }
+        FxConsole console = output.console(consoleName);
+        console.clear();
+        console.show();
+        BuildTool tool = BuildTool.detect(dir);
+        List<String> command = tool.commandLine(dir, action);
+        if (command == null) {
+            console.append(NbBundle.getMessage(BuildRunner.class, "BuildCommand.noTool") + "\n");
+            return;
+        }
+        ProcessRunner.run(command, dir, console);
+    }
+}

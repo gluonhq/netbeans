@@ -21,15 +21,11 @@ package com.gluonhq.netbeans.nbfx.run;
 import com.gluonhq.netbeans.nbfx.api.actions.Command;
 import com.gluonhq.netbeans.nbfx.api.project.OpenProject;
 import com.gluonhq.netbeans.nbfx.api.project.ProjectRegistry;
-import com.gluonhq.netbeans.nbfx.output.FxConsole;
 import com.gluonhq.netbeans.nbfx.output.FxOutput;
-import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.List;
 import javafx.beans.binding.Bindings;
 import javafx.beans.property.ReadOnlyBooleanProperty;
 import javafx.beans.property.ReadOnlyBooleanWrapper;
-import org.openide.util.NbBundle;
 
 /**
  * A build command (Build / Clean / Test / Run) acting on the selected project. The project's build
@@ -85,19 +81,9 @@ final class BuildCommand implements Command {
     @Override
     public void run() {
         OpenProject project = projects == null ? null : projects.getSelected();
-        if (project == null || output == null) {
+        if (project == null) {
             return;
         }
-        Path dir = Paths.get(project.getPath());
-        BuildTool tool = BuildTool.detect(dir);
-        FxConsole console = output.console(text + " " + project.getDisplayName());
-        console.clear();
-        console.show();
-        List<String> command = tool.commandLine(dir, action);
-        if (command == null) {
-            console.append(NbBundle.getMessage(BuildCommand.class, "BuildCommand.noTool") + "\n");
-            return;
-        }
-        ProcessRunner.run(command, dir, console);
+        BuildRunner.run(Paths.get(project.getPath()), action, text + " " + project.getDisplayName(), output);
     }
 }
