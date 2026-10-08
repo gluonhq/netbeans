@@ -20,8 +20,10 @@ package com.gluonhq.netbeans.nbfx.output;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import com.gluonhq.netbeans.nbfx.api.view.ViewManager;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import org.openide.util.Lookup;
 import org.openide.util.lookup.ServiceProvider;
 
 /**
@@ -41,7 +43,22 @@ public final class FxOutputImpl implements FxOutput {
         return consoles.computeIfAbsent(name, consoleName -> {
             ConsoleModel model = new ConsoleModel(consoleName);
             FxThread.run(() -> ordered.add(model));
+            showOutputView();
             return model;
+        });
+    }
+
+    /**
+     * Brings the Output view on screen. Called whenever a console is created, so writing to the
+     * output always makes it visible, no matter which activity is writing.
+     */
+    private void showOutputView() {
+        FxThread.run(() -> {
+            ViewManager manager = Lookup.getDefault().lookup(ViewManager.class);
+            OutputViewProvider view = OutputViewProvider.instance();
+            if (manager != null && view != null) {
+                manager.show(view);
+            }
         });
     }
 

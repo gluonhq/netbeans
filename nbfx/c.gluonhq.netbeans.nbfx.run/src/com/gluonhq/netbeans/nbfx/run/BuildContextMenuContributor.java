@@ -18,9 +18,7 @@
  */
 package com.gluonhq.netbeans.nbfx.run;
 
-import com.gluonhq.netbeans.nbfx.api.actions.ActionIds;
 import com.gluonhq.netbeans.nbfx.api.actions.FileContextMenuContributor;
-import com.gluonhq.netbeans.nbfx.output.FxOutput;
 import java.io.File;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -28,7 +26,6 @@ import java.util.List;
 import javafx.scene.control.MenuItem;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
-import org.openide.util.Lookup;
 import org.openide.util.NbBundle;
 import org.openide.util.lookup.ServiceProvider;
 
@@ -41,8 +38,6 @@ import org.openide.util.lookup.ServiceProvider;
 @ServiceProvider(service = FileContextMenuContributor.class)
 public final class BuildContextMenuContributor implements FileContextMenuContributor {
 
-    private final FxOutput output = Lookup.getDefault().lookup(FxOutput.class);
-
     @Override
     public List<MenuItem> itemsFor(FileObject file) {
         return List.of();
@@ -50,9 +45,6 @@ public final class BuildContextMenuContributor implements FileContextMenuContrib
 
     @Override
     public List<MenuItem> itemsForFolders(List<FileObject> folders) {
-        if (output == null) {
-            return List.of();
-        }
         for (FileObject folder : folders) {
             File directory = folder == null ? null : FileUtil.toFile(folder);
             if (directory == null) {
@@ -76,7 +68,7 @@ public final class BuildContextMenuContributor implements FileContextMenuContrib
     private MenuItem item(String key, Path dir, BuildTool.Action action, String base) {
         String text = NbBundle.getMessage(BuildContextMenuContributor.class, key);
         MenuItem item = new MenuItem(text);
-        item.setOnAction(event -> BuildRunner.run(dir, action, text + " " + base, output));
+        item.setOnAction(event -> BuildRunner.run(dir, action, text + " " + base));
         return item;
     }
 }

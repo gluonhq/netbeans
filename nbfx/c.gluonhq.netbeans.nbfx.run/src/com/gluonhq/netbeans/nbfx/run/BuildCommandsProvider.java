@@ -22,7 +22,6 @@ import com.gluonhq.netbeans.nbfx.api.actions.ActionIds;
 import com.gluonhq.netbeans.nbfx.api.actions.Command;
 import com.gluonhq.netbeans.nbfx.api.actions.CommandsProvider;
 import com.gluonhq.netbeans.nbfx.api.project.ProjectRegistry;
-import com.gluonhq.netbeans.nbfx.output.FxOutput;
 import java.util.Collection;
 import java.util.List;
 import org.openide.util.Lookup;
@@ -39,18 +38,17 @@ import org.openide.util.lookup.ServiceProvider;
 public final class BuildCommandsProvider implements CommandsProvider {
 
     private final ProjectRegistry projects = Lookup.getDefault().lookup(ProjectRegistry.class);
-    private final FxOutput output = Lookup.getDefault().lookup(FxOutput.class);
 
     @Override
     public Collection<Command> createCommands() {
         return List.of(
-                new BuildCommand(projects, output, ActionIds.BUILD, message("BuildCommand.build"),
+                new BuildCommand(projects, ActionIds.BUILD, message("BuildCommand.build"),
                         BuildTool.Action.BUILD),
-                new BuildCommand(projects, output, ActionIds.CLEAN, message("BuildCommand.clean"),
+                new BuildCommand(projects, ActionIds.CLEAN, message("BuildCommand.clean"),
                         BuildTool.Action.CLEAN),
-                new BuildCommand(projects, output, ActionIds.TEST, message("BuildCommand.test"),
+                new BuildCommand(projects, ActionIds.TEST, message("BuildCommand.test"),
                         BuildTool.Action.TEST),
-                new BuildCommand(projects, output, ActionIds.RUN, message("BuildCommand.run"),
+                new BuildCommand(projects, ActionIds.RUN, message("BuildCommand.run"),
                         BuildTool.Action.RUN));
     }
 

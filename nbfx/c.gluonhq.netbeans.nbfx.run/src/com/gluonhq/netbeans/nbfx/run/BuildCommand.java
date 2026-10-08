@@ -21,7 +21,6 @@ package com.gluonhq.netbeans.nbfx.run;
 import com.gluonhq.netbeans.nbfx.api.actions.Command;
 import com.gluonhq.netbeans.nbfx.api.project.OpenProject;
 import com.gluonhq.netbeans.nbfx.api.project.ProjectRegistry;
-import com.gluonhq.netbeans.nbfx.output.FxOutput;
 import java.nio.file.Paths;
 import javafx.beans.binding.Bindings;
 import javafx.beans.property.ReadOnlyBooleanProperty;
@@ -38,16 +37,13 @@ import javafx.beans.property.ReadOnlyBooleanWrapper;
 final class BuildCommand implements Command {
 
     private final ProjectRegistry projects;
-    private final FxOutput output;
     private final String id;
     private final String text;
     private final BuildTool.Action action;
     private final ReadOnlyBooleanWrapper disabled = new ReadOnlyBooleanWrapper(this, "disabled", true);
 
-    BuildCommand(ProjectRegistry projects, FxOutput output, String id, String text,
-            BuildTool.Action action) {
+    BuildCommand(ProjectRegistry projects, String id, String text, BuildTool.Action action) {
         this.projects = projects;
-        this.output = output;
         this.id = id;
         this.text = text;
         this.action = action;
@@ -84,6 +80,6 @@ final class BuildCommand implements Command {
         if (project == null) {
             return;
         }
-        BuildRunner.run(Paths.get(project.getPath()), action, text + " " + project.getDisplayName(), output);
+        BuildRunner.run(Paths.get(project.getPath()), action, text + " " + project.getDisplayName());
     }
 }

@@ -21,6 +21,7 @@ package com.gluonhq.netbeans.nbfx.output;
 import com.gluonhq.netbeans.nbfx.annotations.FxViewLocation;
 import com.gluonhq.netbeans.nbfx.annotations.FxViewRegistration;
 import com.gluonhq.netbeans.nbfx.api.view.DockLocation;
+import com.gluonhq.netbeans.nbfx.api.view.ViewManager;
 import com.gluonhq.netbeans.nbfx.api.view.ViewProvider;
 import java.util.List;
 import javafx.collections.ListChangeListener;
@@ -94,5 +95,22 @@ public final class OutputViewProvider implements ViewProvider {
                 () -> pane.getSelectionModel().select(tab));
         pane.getTabs().add(tab);
         pane.getSelectionModel().select(tab);
+    }
+
+    /** Brings the Output view on screen. Must run on the JavaFX Application Thread. */
+    public void show() {
+        ViewManager manager = Lookup.getDefault().lookup(ViewManager.class);
+        if (manager != null) {
+            manager.show(this);
+        }
+    }
+
+    /** The registered instance, or {@code null} when the module is not loaded. */
+    public static OutputViewProvider instance() {
+        return Lookup.getDefault().lookupAll(ViewProvider.class).stream()
+                .filter(OutputViewProvider.class::isInstance)
+                .map(OutputViewProvider.class::cast)
+                .findFirst()
+                .orElse(null);
     }
 }

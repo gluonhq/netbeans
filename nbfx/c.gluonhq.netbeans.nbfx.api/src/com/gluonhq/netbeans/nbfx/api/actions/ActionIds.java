@@ -109,6 +109,9 @@ public final class ActionIds {
     public static final String REPLACE_IN_PROJECTS = "replaceInProjects";
     /** Shows and selects the Search Results view (Window menu). */
     public static final String SELECT_SEARCH_RESULTS = "selectSearchResults";
+
+    /** Shows and selects the Output view (Window menu). */
+    public static final String SELECT_OUTPUT = "selectOutput";
     /** Find... on a folder of the Projects view: opens the search dialog scoped to the selected folders. */
     public static final String FILE_FIND = "file.find";
 

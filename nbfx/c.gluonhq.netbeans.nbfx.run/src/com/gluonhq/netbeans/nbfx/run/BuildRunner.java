@@ -22,22 +22,34 @@ import com.gluonhq.netbeans.nbfx.output.FxConsole;
 import com.gluonhq.netbeans.nbfx.output.FxOutput;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.logging.Logger;
+import org.openide.util.Lookup;
 import org.openide.util.NbBundle;
 
 /**
  * Runs a build action for a project directory: detects the build tool, opens (and clears) the
  * console named {@code consoleName}, and streams the tool's output into it. Shared by the Build
  * menu command and the navigator context menu.
+ * <p>
+ * The output service is resolved at call time and writing to a console makes the Output view show
+ * itself, so a build always brings its output on screen.
  *
  * @since 1.0
  */
 final class BuildRunner {
 
+    private static final Logger LOG = Logger.getLogger(BuildRunner.class.getName());
+
     private BuildRunner() {
     }
 
-    static void run(Path dir, BuildTool.Action action, String consoleName, FxOutput output) {
-        if (dir == null || output == null) {
+    static void run(Path dir, BuildTool.Action action, String consoleName) {
+        if (dir == null) {
+            return;
+        }
+        FxOutput output = Lookup.getDefault().lookup(FxOutput.class);
+        if (output == null) {
+            LOG.warning("No FxOutput service; build output cannot be shown");
             return;
         }
         FxConsole console = output.console(consoleName);
