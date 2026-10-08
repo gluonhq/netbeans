@@ -121,6 +121,9 @@ public final class ActionIds {
 
     /** Opens the Options dialog (Window menu). */
     public static final String SELECT_OPTIONS = "selectOptions";
+
+    /** Shows and selects the Git view (Window menu). */
+    public static final String SELECT_GIT = "selectGit";
     /** Find... on a folder of the Projects view: opens the search dialog scoped to the selected folders. */
     public static final String FILE_FIND = "file.find";
 
