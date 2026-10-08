@@ -1180,7 +1180,7 @@ It is possible to use -Ddebug.port=3234 -Ddebug.pause=y to start the system in d
     <mergetrymeargs/>
     <!-- Pass the built cluster list and the JMS add-opens/add-exports flags, as bin/netbeans does,
          so tryme works on JDK 16+ even when the launcher cluster is not built. -->
-    <resolvelist name="tryme.clusters.dirs" list="${nb.clusters.list}">
+    <resolvelist name="tryme.clusters.dirs" list="${clusters.config.nbfx.list}">
         <mapper type="glob" from="*" to="*.dir"/>
     </resolvelist>
     <dirset id="tryme.clusters.set" dir="${netbeans.dest.dir}" includes="${tryme.clusters.dirs}"/>
@@ -1200,9 +1200,7 @@ It is possible to use -Ddebug.port=3234 -Ddebug.pause=y to start the system in d
         </or>
     </condition>
 
-    <condition property="tryme.launcher.prefix" value="${netbeans.dest.dir}/bin/netbeans" else="${netbeans.dest.dir}/platform/lib/nbexec">
-      <available file="${netbeans.dest.dir}/nb/.lastModified" />
-    </condition>
+    <property name="tryme.launcher.prefix" value="${netbeans.dest.dir}/platform/lib/nbexec"/>
     <property name="run.args.ide" value=""/>
     <exec osfamily="windows" executable="${tryme.launcher.prefix}${jvm.arch.string}.exe" failonerror="yes" dir="${java.io.tmpdir}">
       <arg value="--jdkhome"/>
