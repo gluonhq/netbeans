@@ -40,12 +40,13 @@ public final class FxOutputImpl implements FxOutput {
 
     @Override
     public FxConsole console(String name) {
-        return consoles.computeIfAbsent(name, consoleName -> {
-            ConsoleModel model = new ConsoleModel(consoleName);
-            FxThread.run(() -> ordered.add(model));
-            showOutputView();
-            return model;
+        ConsoleModel model = consoles.computeIfAbsent(name, consoleName -> {
+            ConsoleModel created = new ConsoleModel(consoleName);
+            FxThread.run(() -> ordered.add(created));
+            return created;
         });
+        showOutputView();
+        return model;
     }
 
     /**
