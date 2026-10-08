@@ -1,5 +1,6 @@
 package com.gluonhq.netbeans.nbfx.project.ui.ant;
 
+import com.gluonhq.netbeans.nbfx.project.ui.api.ProjectFile;
 import com.gluonhq.netbeans.nbfx.project.ui.api.ProjectKindProvider;
 import java.io.IOException;
 import java.io.InputStream;
@@ -11,6 +12,7 @@ import org.netbeans.api.project.Project;
 import org.netbeans.api.project.ProjectManager;
 import org.openide.filesystems.FileObject;
 import org.openide.util.Exceptions;
+import org.openide.util.NbBundle;
 import org.openide.util.lookup.ServiceProvider;
 import org.w3c.dom.Document;
 import org.w3c.dom.NodeList;
@@ -44,6 +46,34 @@ public final class AntProjectKindProvider implements ProjectKindProvider {
         findNestedProjects(project.getProjectDirectory(), result);
         return result;
     }
+
+    @Override
+    public String projectFilesGroupName() {
+        return NbBundle.getMessage(AntProjectKindProvider.class, "ImportantFilesGroupName");
+    }
+
+    @Override
+    public List<ProjectFile> projectFiles(Project project) {
+        FileObject dir = project.getProjectDirectory();
+        List<ProjectFile> files = new ArrayList<>();
+        for (String path : IMPORTANT_FILES) {
+            if (dir.getFileObject(path) != null) {
+                files.add(new ProjectFile(path, null));
+            }
+        }
+        return files;
+    }
+
+    /** The files the original apisupport "Important Files" node lists, in order. */
+    private static final String[] IMPORTANT_FILES = {
+        "manifest.mf",
+        "build.xml",
+        "nbproject/project.xml",
+        "nbproject/project.properties",
+        "nbproject/private/private.properties",
+        "nbproject/platform.properties",
+        "nbproject/private/platform-private.properties",
+    };
 
     @Override
     public String iconName(Project project, boolean isMaster) {

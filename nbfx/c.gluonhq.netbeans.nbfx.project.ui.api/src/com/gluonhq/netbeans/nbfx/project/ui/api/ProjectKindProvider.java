@@ -38,6 +38,22 @@ public interface ProjectKindProvider {
     }
 
     /**
+     * Returns the label of the "project files" / "important files" group, or {@code null} to omit
+     * that group. The files themselves come from {@link #projectFiles(Project)}.
+     */
+    default String projectFilesGroupName() {
+        return null;
+    }
+
+    /**
+     * Returns the files to show under the {@link #projectFilesGroupName() project files group}, or an
+     * empty list. Paths are relative to the project directory.
+     */
+    default List<ProjectFile> projectFiles(Project project) {
+        return List.of();
+    }
+
+    /**
      * Returns the navigator icon resource name for the project, or {@code null}.
      *
      * @param isMaster whether the project is the root of the navigator tree

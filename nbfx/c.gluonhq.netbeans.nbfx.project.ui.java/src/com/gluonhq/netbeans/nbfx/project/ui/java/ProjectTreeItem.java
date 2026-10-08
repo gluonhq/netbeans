@@ -53,7 +53,9 @@ public class ProjectTreeItem extends TreeItem<ProjectEntry> {
                         });
                     }));
             }
-            if (projectEntry.getType() == ProjectEntry.Type.MODULES || projectEntry.getType() == ProjectEntry.Type.GROUP) {
+            if (projectEntry.getType() == ProjectEntry.Type.MODULES
+                    || projectEntry.getType() == ProjectEntry.Type.GROUP
+                    || projectEntry.getType() == ProjectEntry.Type.FILES) {
                 expandedProperty().subscribe(expanded -> {
                     String iconName = expanded ? NavigatorIcons.FOLDER_OPEN_ICON : NavigatorIcons.FOLDER_CLOSE_ICON;
                     if (projectEntry.getBadge() != ProjectEntry.BADGE.NO_BADGE) {

@@ -12,6 +12,7 @@ public class ProjectEntry {
         MODULES,
         GROUP,
         PACKAGE,
+        FILES,
         FILE
     }
 

@@ -4,6 +4,7 @@ import com.gluonhq.netbeans.nbfx.annotations.FxViewLocation;
 import com.gluonhq.netbeans.nbfx.annotations.FxViewRegistration;
 import com.gluonhq.netbeans.nbfx.api.NavigatorProvider;
 import com.gluonhq.netbeans.nbfx.api.project.ProjectRegistry;
+import com.gluonhq.netbeans.nbfx.project.ui.api.ProjectFile;
 import com.gluonhq.netbeans.nbfx.project.ui.api.ProjectKindProvider;
 import com.gluonhq.netbeans.nbfx.project.ui.api.ProjectKinds;
 import com.gluonhq.netbeans.nbfx.project.ui.java.utils.DeleteActions;
@@ -611,10 +612,46 @@ public class ProjectNavigatorImpl extends AbstractNavigatorProvider<ProjectEntry
                         ProjectEntry resourcesGroupEntry = new ProjectEntry(source.getRootFolder(), source.getDisplayName(), ProjectEntry.Type.GROUP, ProjectEntry.BADGE.OTHERS_BADGE);
                         children.add(new ProjectTreeItem(resourcesGroupEntry));
                     }
-                    Platform.runLater(() -> addLazyChildren(state, projectNode, children));
+                    Platform.runLater(() -> {
+                        addProjectFilesNode(project, kind, children);
+                        addLazyChildren(state, projectNode, children);
+                    });
                 }));
         }
         return projectNode;
+    }
+
+    /**
+     * Appends the project's "project files" / "important files" group (from the project-kind
+     * provider), if any. Runs on the FX thread because it attaches tree nodes.
+     */
+    private void addProjectFilesNode(Project project, ProjectKindProvider kind, List<TreeItem<ProjectEntry>> children) {
+        String groupName = kind.projectFilesGroupName();
+        if (groupName == null) {
+            return;
+        }
+        List<ProjectFile> projectFiles = kind.projectFiles(project);
+        if (projectFiles.isEmpty()) {
+            return;
+        }
+        FileObject dir = project.getProjectDirectory();
+        List<TreeItem<ProjectEntry>> fileChildren = new ArrayList<>();
+        for (ProjectFile file : projectFiles) {
+            FileObject fo = dir.getFileObject(file.path());
+            if (fo != null && fo.isData()) {
+                String name = file.displayName() != null ? file.displayName() : fo.getNameExt();
+                fileChildren.add(new ProjectTreeItem(new ProjectEntry(fo, name, ProjectEntry.Type.FILE,
+                        ProjectEntry.BADGE.NO_BADGE, NavigatorIcons.getFileIconName(fo))));
+            }
+        }
+        if (fileChildren.isEmpty()) {
+            return;
+        }
+        ProjectEntry groupEntry = new ProjectEntry(dir, groupName, ProjectEntry.Type.FILES,
+                ProjectEntry.BADGE.PROJECTFILES_BADGE);
+        ProjectTreeItem groupNode = new ProjectTreeItem(groupEntry);
+        groupNode.getChildren().setAll(fileChildren);
+        children.add(groupNode);
     }
 
     @Override
