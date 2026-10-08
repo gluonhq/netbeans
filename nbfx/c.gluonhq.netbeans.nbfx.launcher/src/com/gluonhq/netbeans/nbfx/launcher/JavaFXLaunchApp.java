@@ -154,7 +154,7 @@ public class JavaFXLaunchApp extends Application {
         BorderPane borderPane = new BorderPane(dockArea);
 
         actionBars = new ActionBars();
-        actionBars.registerProjectCommands(this::newProject, this::openProject,
+        actionBars.registerProjectCommands(this::openProject,
                 this::closeProject, this::closeAllProjects, projectOpen.not());
         actionBars.configureRecentProjects(appState::getRecentProjects, this::openProject,
                 this::clearRecentProjects, this::projectIcon);
@@ -879,10 +879,6 @@ public class JavaFXLaunchApp extends Application {
         appState.setOpenProjects(
                 projectRegistry.getOpenProjects().stream().map(OpenProject::getPath).toList(),
                 selected == null ? null : selected.getPath());
-    }
-
-    void newProject() {
-        LOG.info("New Project action invoked (not yet implemented)");
     }
 
     void openProject() {

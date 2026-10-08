@@ -32,6 +32,7 @@ import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.FIND_PREVIOUS;
 import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.FIND_SELECTION;
 import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.FIND_USAGES;
 import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.NEW_PROJECT;
+import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.NEW_FILE;
 import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.NEXT_PROJECT;
 import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.OPEN_PROJECT;
 import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.PASTE;
@@ -61,6 +62,7 @@ import com.gluonhq.netbeans.nbfx.annotations.FxActionReference;
  * This class carries metadata only; it is never instantiated.
  */
 @FxActionReference(id = NEW_PROJECT, path = "Menus/File", position = 10)
+@FxActionReference(id = NEW_FILE, path = "Menus/File", position = 15)
 @FxActionReference(id = OPEN_PROJECT, path = "Menus/File", position = 20)
 @FxActionReference(id = MenuRegistrations.OPEN_RECENT, path = "Menus/File", position = 30)
 @FxActionReference(id = CLOSE_PROJECT, path = "Menus/File", position = 40)

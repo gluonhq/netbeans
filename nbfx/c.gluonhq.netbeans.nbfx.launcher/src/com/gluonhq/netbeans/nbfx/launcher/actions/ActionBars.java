@@ -162,19 +162,17 @@ public final class ActionBars {
     }
 
     /**
-     * Registers the launcher-owned project commands (New / Open Project) into the registry.
-     * Must be called before {@link #createMenuBar(ObservableValue)} / {@link #createToolBars(ObservableValue)} so their
+     * Registers the launcher-owned project commands (Open / Close Project) into the registry.
+     * New Project comes from the wizard module. Must be called before
+     * {@link #createMenuBar(ObservableValue)} / {@link #createToolBars(ObservableValue)} so their
      * controls can be built.
      */
-    public void registerProjectCommands(Runnable newProject, Runnable openProject,
+    public void registerProjectCommands(Runnable openProject,
             Runnable closeProject, Runnable closeAllProjects, ObservableValue<Boolean> closeDisabled) {
         if (registry == null) {
             LOG.warning("No ActionRegistry found; project actions will not be available");
             return;
         }
-        registry.register(new RunnableCommand(ActionIds.NEW_PROJECT, message("CTL_NewProjectCommand"),
-                new KeyCodeCombination(KeyCode.N, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN),
-                newProject));
         registry.register(new RunnableCommand(ActionIds.OPEN_PROJECT, message("CTL_OpenProjectCommand"),
                 new KeyCodeCombination(KeyCode.O, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN),
                 openProject));

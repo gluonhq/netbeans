@@ -9,6 +9,9 @@ public final class ActionIds {
     /** Creates a new project. */
     public static final String NEW_PROJECT = "newProject";
 
+    /** Creates a new file from a template. */
+    public static final String NEW_FILE = "newFile";
+
     /** Opens an existing project. */
     public static final String OPEN_PROJECT = "openProject";
 
