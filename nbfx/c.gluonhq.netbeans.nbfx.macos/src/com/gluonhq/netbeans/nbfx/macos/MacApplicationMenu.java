@@ -16,40 +16,34 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package com.gluonhq.netbeans.nbfx.launcher;
+package com.gluonhq.netbeans.nbfx.macos;
 
+import com.gluonhq.netbeans.nbfx.api.FxApplicationMenu;
 import java.awt.Desktop;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javafx.application.Platform;
+import org.openide.util.lookup.ServiceProvider;
 
 /**
- * The macOS application-menu integration (Preferences… and Quit).
+ * The macOS application menu (Preferences… and Quit).
  * <p>
  * <b>Quarantine.</b> The macOS application menu is owned by the OS, and JavaFX has no API to add
  * items to it: {@code MenuBar.setUseSystemMenuBar(true)} only mirrors the MenuBar's own menus. The
  * only supported mechanism is the AWT {@link Desktop} handlers (the same ones NetBeans' applemenu
  * module uses); no Swing is involved, and the handlers only route to the pure-FX Options dialog and
- * the normal exit path. Like {@link SwingWindowSuppressor}, this is the exception the purity
- * guardrail allows.
+ * the normal exit path. This module is enabled only on macOS (see
+ * {@code OpenIDE-Module-Requires: org.openide.modules.os.MacOSX}), so it never loads elsewhere.
  *
  * @since 1.0
  */
-final class MacApplicationMenu {
+@ServiceProvider(service = FxApplicationMenu.class)
+public final class MacApplicationMenu implements FxApplicationMenu {
 
     private static final Logger LOG = Logger.getLogger(MacApplicationMenu.class.getName());
 
-    private MacApplicationMenu() {
-    }
-
-    /**
-     * Registers the app-menu handlers when running on macOS. {@code openPreferences} and
-     * {@code quit} run on the JavaFX Application Thread.
-     */
-    static void install(Runnable openPreferences, Runnable quit) {
-        if (!isMac()) {
-            return;
-        }
+    @Override
+    public void install(Runnable openPreferences, Runnable quit) {
         try {
             Desktop desktop = Desktop.getDesktop();
             desktop.setPreferencesHandler(event -> Platform.runLater(openPreferences));
@@ -61,9 +55,5 @@ final class MacApplicationMenu {
         } catch (Throwable ex) {
             LOG.log(Level.WARNING, "Could not register the macOS application-menu handlers", ex);
         }
-    }
-
-    private static boolean isMac() {
-        return System.getProperty("os.name", "").toLowerCase().contains("mac");
     }
 }

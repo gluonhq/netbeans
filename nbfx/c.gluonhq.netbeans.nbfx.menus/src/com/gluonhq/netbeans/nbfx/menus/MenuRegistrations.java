@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package com.gluonhq.netbeans.nbfx.launcher.actions;
+package com.gluonhq.netbeans.nbfx.menus;
 
 import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.CLOSE_ALL_PROJECTS;
 import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.CLOSE_ALL_DOCUMENTS;
@@ -55,12 +55,14 @@ import com.gluonhq.netbeans.nbfx.annotations.FxActionReference;
 import com.gluonhq.netbeans.nbfx.annotations.FxMenuRegistration;
 
 /**
- * Declares the main window's menus and their entries in the layer, so the UI is assembled from
- * registrations rather than hard-coded lists. The processor turns each reference into an
- * {@code NbFx/Menus/<menu>/*.ref} or {@code NbFx/Toolbars/<bar>/*.ref} layer entry that
- * {@link ActionBars} reads.
+ * Declares the application shell's menus and their entries in the layer, so the window is assembled
+ * from registrations rather than hard-coded lists. The processor turns each reference into an
+ * {@code NbFx/Menus/<menu>/*.ref} layer entry that the window's {@code ActionBars} reads.
  * <p>
- * This class carries metadata only; it is never instantiated.
+ * This module knows only the shell's menu structure; the commands themselves are registered by the
+ * modules that own them. This class carries metadata only; it is never instantiated.
+ *
+ * @since 1.0
  */
 @FxMenuRegistration(id = "File", position = 10)
 @FxMenuRegistration(id = "Edit", position = 20)
@@ -102,13 +104,13 @@ import com.gluonhq.netbeans.nbfx.annotations.FxMenuRegistration;
 @FxActionReference(id = FIND_IN_PROJECTS, path = "Menus/Edit", position = 110)
 @FxActionReference(id = REPLACE_IN_PROJECTS, path = "Menus/Edit", position = 120)
 @FxActionReference(id = FIND_USAGES, path = "Menus/Edit", position = 130, separatorBefore = true)
-final class MenuRegistrations {
+public final class MenuRegistrations {
 
     /** Placeholder id for the Recent Projects submenu, which the window builds dynamically. */
-    static final String OPEN_RECENT = "openRecent";
+    public static final String OPEN_RECENT = "openRecent";
 
     /** Placeholder id for the Configure Window submenu, which the window builds dynamically. */
-    static final String CONFIGURE_WINDOW = "configureWindow";
+    public static final String CONFIGURE_WINDOW = "configureWindow";
 
     private MenuRegistrations() {
     }

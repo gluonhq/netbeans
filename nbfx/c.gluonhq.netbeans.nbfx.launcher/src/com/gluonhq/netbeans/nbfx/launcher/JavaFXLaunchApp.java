@@ -32,6 +32,7 @@ import com.gluonhq.netbeans.nbfx.windows.ViewRegistration;
 import com.gluonhq.netbeans.nbfx.windows.ViewRegistry;
 
 import com.gluonhq.netbeans.nbfx.api.ContentManager;
+import com.gluonhq.netbeans.nbfx.api.FxApplicationMenu;
 import com.gluonhq.netbeans.nbfx.api.actions.ActionIds;
 import com.gluonhq.netbeans.nbfx.api.actions.ActionRegistry;
 import com.gluonhq.netbeans.nbfx.api.actions.Command;
@@ -275,8 +276,12 @@ public class JavaFXLaunchApp extends Application {
                 event.consume();
             }
         });
-        // On macOS, Preferences and Quit live in the application menu.
-        MacApplicationMenu.install(this::openPreferences, this::requestQuit);
+        // On platforms with a native application menu (macOS), let the platform-specific module
+        // register its Preferences and Quit handlers; the launcher stays free of that code.
+        FxApplicationMenu applicationMenu = Lookup.getDefault().lookup(FxApplicationMenu.class);
+        if (applicationMenu != null) {
+            applicationMenu.install(this::openPreferences, this::requestQuit);
+        }
 
         // Everything the IDE knows about the open projects comes from the platform's filesystem
         // layer, which does not see changes made outside the IDE until it is refreshed. Coming back
