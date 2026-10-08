@@ -130,7 +130,7 @@ public final class NavigatorIcons {
      * @param onIcon a consumer that will be called with the loaded icon once ready
      */
     private static void getIcon(FileObject fileObj, String iconName, Consumer<Image> onIcon) {
-        String cacheKey = fileObj.getPath() + (iconName != null ? "::" + iconName : "");
+        String cacheKey = (fileObj != null ? fileObj.getPath() : "") + (iconName != null ? "::" + iconName : "");
         Image cached = iconCacheMap.get(cacheKey);
         if (cached != null) {
             // If the image is already cached, use it immediately

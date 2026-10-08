@@ -2,6 +2,7 @@ package com.gluonhq.netbeans.nbfx.project.ui.ant;
 
 import com.gluonhq.netbeans.nbfx.project.ui.api.ProjectFile;
 import com.gluonhq.netbeans.nbfx.project.ui.api.ProjectKindProvider;
+import com.gluonhq.netbeans.nbfx.project.ui.api.ProjectLibrary;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -15,6 +16,7 @@ import org.openide.util.Exceptions;
 import org.openide.util.NbBundle;
 import org.openide.util.lookup.ServiceProvider;
 import org.w3c.dom.Document;
+import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 
 /**
@@ -74,6 +76,49 @@ public final class AntProjectKindProvider implements ProjectKindProvider {
         "nbproject/platform.properties",
         "nbproject/private/platform-private.properties",
     };
+
+    @Override
+    public String librariesGroupName() {
+        return NbBundle.getMessage(AntProjectKindProvider.class, "LibrariesGroupName");
+    }
+
+    @Override
+    public List<ProjectLibrary> libraries(Project project) {
+        FileObject projectXml = project.getProjectDirectory().getFileObject("nbproject/project.xml");
+        if (projectXml == null || !projectXml.isData()) {
+            return List.of();
+        }
+        List<ProjectLibrary> libraries = new ArrayList<>();
+        try (InputStream in = projectXml.getInputStream()) {
+            DocumentBuilder builder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
+            Document doc = builder.parse(in);
+            NodeList moduleDependencies = doc.getElementsByTagName("module-dependencies");
+            for (int m = 0; m < moduleDependencies.getLength(); m++) {
+                Element section = (Element) moduleDependencies.item(m);
+                NodeList dependencies = section.getElementsByTagName("dependency");
+                for (int d = 0; d < dependencies.getLength(); d++) {
+                    Element dependency = (Element) dependencies.item(d);
+                    String cnb = textOf(dependency, "code-name-base");
+                    if (cnb == null) {
+                        continue;
+                    }
+                    libraries.add(new ProjectLibrary(cnb, textOf(dependency, "specification-version"), "jaricon.png"));
+                }
+            }
+        } catch (Exception ex) {
+            Exceptions.printStackTrace(ex);
+        }
+        return libraries;
+    }
+
+    private static String textOf(Element element, String tagName) {
+        NodeList nodes = element.getElementsByTagName(tagName);
+        if (nodes.getLength() == 0) {
+            return null;
+        }
+        String text = nodes.item(0).getTextContent();
+        return text == null || text.isBlank() ? null : text.trim();
+    }
 
     @Override
     public String iconName(Project project, boolean isMaster) {

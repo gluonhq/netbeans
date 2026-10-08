@@ -54,6 +54,19 @@ public interface ProjectKindProvider {
     }
 
     /**
+     * Returns the label of the "libraries" group, or {@code null} to omit that group. The libraries
+     * themselves come from {@link #libraries(Project)}.
+     */
+    default String librariesGroupName() {
+        return null;
+    }
+
+    /** Returns the libraries / dependencies to show under the libraries group, or an empty list. */
+    default List<ProjectLibrary> libraries(Project project) {
+        return List.of();
+    }
+
+    /**
      * Returns the navigator icon resource name for the project, or {@code null}.
      *
      * @param isMaster whether the project is the root of the navigator tree

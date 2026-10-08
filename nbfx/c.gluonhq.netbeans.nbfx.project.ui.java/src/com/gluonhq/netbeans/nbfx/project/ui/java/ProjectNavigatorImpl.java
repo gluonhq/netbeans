@@ -7,6 +7,7 @@ import com.gluonhq.netbeans.nbfx.api.project.ProjectRegistry;
 import com.gluonhq.netbeans.nbfx.project.ui.api.ProjectFile;
 import com.gluonhq.netbeans.nbfx.project.ui.api.ProjectKindProvider;
 import com.gluonhq.netbeans.nbfx.project.ui.api.ProjectKinds;
+import com.gluonhq.netbeans.nbfx.project.ui.api.ProjectLibrary;
 import com.gluonhq.netbeans.nbfx.project.ui.java.utils.DeleteActions;
 import com.gluonhq.netbeans.nbfx.project.ui.java.utils.NavigatorIcons;
 import com.gluonhq.netbeans.nbfx.project.ui.java.utils.PackageScanner;
@@ -614,6 +615,7 @@ public class ProjectNavigatorImpl extends AbstractNavigatorProvider<ProjectEntry
                     }
                     Platform.runLater(() -> {
                         addProjectFilesNode(project, kind, children);
+                        addLibrariesNode(project, kind, children);
                         addLazyChildren(state, projectNode, children);
                     });
                 }));
@@ -651,6 +653,35 @@ public class ProjectNavigatorImpl extends AbstractNavigatorProvider<ProjectEntry
                 ProjectEntry.BADGE.PROJECTFILES_BADGE);
         ProjectTreeItem groupNode = new ProjectTreeItem(groupEntry);
         groupNode.getChildren().setAll(fileChildren);
+        children.add(groupNode);
+    }
+
+    /**
+     * Appends the project's "libraries" group (from the project-kind provider), if any. The entries
+     * are descriptive (name + optional version), not files. Runs on the FX thread.
+     */
+    private void addLibrariesNode(Project project, ProjectKindProvider kind, List<TreeItem<ProjectEntry>> children) {
+        String groupName = kind.librariesGroupName();
+        if (groupName == null) {
+            return;
+        }
+        List<ProjectLibrary> libraries = kind.libraries(project);
+        if (libraries.isEmpty()) {
+            return;
+        }
+        List<TreeItem<ProjectEntry>> libraryChildren = new ArrayList<>();
+        for (ProjectLibrary library : libraries) {
+            String name = library.detail() == null
+                    ? library.name()
+                    : library.name() + " (" + library.detail() + ")";
+            String icon = library.iconName() != null ? library.iconName() : "jaricon.png";
+            libraryChildren.add(new ProjectTreeItem(new ProjectEntry(null, name, ProjectEntry.Type.LIBRARY,
+                    ProjectEntry.BADGE.NO_BADGE, icon)));
+        }
+        ProjectEntry groupEntry = new ProjectEntry(project.getProjectDirectory(), groupName,
+                ProjectEntry.Type.LIBRARIES, ProjectEntry.BADGE.LIBRARIES_BADGE);
+        ProjectTreeItem groupNode = new ProjectTreeItem(groupEntry);
+        groupNode.getChildren().setAll(libraryChildren);
         children.add(groupNode);
     }
 

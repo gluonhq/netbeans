@@ -55,7 +55,8 @@ public class ProjectTreeItem extends TreeItem<ProjectEntry> {
             }
             if (projectEntry.getType() == ProjectEntry.Type.MODULES
                     || projectEntry.getType() == ProjectEntry.Type.GROUP
-                    || projectEntry.getType() == ProjectEntry.Type.FILES) {
+                    || projectEntry.getType() == ProjectEntry.Type.FILES
+                    || projectEntry.getType() == ProjectEntry.Type.LIBRARIES) {
                 expandedProperty().subscribe(expanded -> {
                     String iconName = expanded ? NavigatorIcons.FOLDER_OPEN_ICON : NavigatorIcons.FOLDER_CLOSE_ICON;
                     if (projectEntry.getBadge() != ProjectEntry.BADGE.NO_BADGE) {
@@ -66,6 +67,8 @@ public class ProjectTreeItem extends TreeItem<ProjectEntry> {
             } else {
                 this.setGraphic(NavigatorIcons.createIconView(fileObject, projectEntry.getIconName()));
             }
+        } else if (projectEntry.getIconName() != null) {
+            this.setGraphic(NavigatorIcons.createIconView(null, projectEntry.getIconName()));
         }
     }
 
@@ -75,6 +78,9 @@ public class ProjectTreeItem extends TreeItem<ProjectEntry> {
             return true;
         }
         ProjectEntry entry = getValue();
+        if (entry != null && entry.getType() == ProjectEntry.Type.LIBRARY) {
+            return true;
+        }
         if (entry != null && entry.getType() == ProjectEntry.Type.PACKAGE) {
             FileObject fo = entry.getFileObject();
             if (fo != null) {
