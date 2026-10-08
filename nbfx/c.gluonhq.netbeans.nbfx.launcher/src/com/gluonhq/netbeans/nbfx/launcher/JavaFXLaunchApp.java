@@ -14,12 +14,19 @@ import com.gluonhq.netbeans.nbfx.launcher.session.CloseConfirmation;
 import com.gluonhq.netbeans.nbfx.launcher.session.DocumentCloser;
 import com.gluonhq.netbeans.nbfx.launcher.session.SessionRestorer;
 import com.gluonhq.netbeans.nbfx.docking.DockArea;
+import com.gluonhq.netbeans.nbfx.annotations.FxStatusAlignment;
+import com.gluonhq.netbeans.nbfx.launcher.ui.CaretStatusElement;
 import com.gluonhq.netbeans.nbfx.launcher.ui.Docking;
+import com.gluonhq.netbeans.nbfx.launcher.ui.LineSeparatorStatusElement;
 import com.gluonhq.netbeans.nbfx.launcher.ui.NbfxTabPane;
-import com.gluonhq.netbeans.nbfx.launcher.ui.StatusBar;
+import com.gluonhq.netbeans.nbfx.launcher.ui.ProgressStatusElement;
+import com.gluonhq.netbeans.nbfx.launcher.ui.ProjectStatusElement;
 import com.gluonhq.netbeans.nbfx.launcher.ui.ToolBarContainer;
 import com.gluonhq.netbeans.nbfx.launcher.ui.ViewTabs;
 import com.gluonhq.netbeans.nbfx.launcher.ui.WindowTitles;
+import com.gluonhq.netbeans.nbfx.statusbar.FxStatusBar;
+import com.gluonhq.netbeans.nbfx.statusbar.StatusElement;
+import com.gluonhq.netbeans.nbfx.statusbar.StatusElementRegistry;
 
 import com.gluonhq.netbeans.nbfx.api.ContentManager;
 import com.gluonhq.netbeans.nbfx.api.editor.EditorContext;
@@ -83,7 +90,11 @@ public class JavaFXLaunchApp extends Application {
     /** The left column: the navigator pane and the panes docked next to it. */
     private DockArea<TabPane> dockArea;
     private ActionBars actionBars;
-    private StatusBar statusBar;
+    private FxStatusBar statusBar;
+    private ProjectStatusElement projectElement;
+    private CaretStatusElement caretElement;
+    private LineSeparatorStatusElement lineSeparatorElement;
+    private ProgressStatusElement progressElement;
     private final ProjectRegistry projectRegistry = projectRegistry();
     private boolean projectStateCaptured;
     /** Whether at least one project is currently open; drives Close Project enablement. */
@@ -166,7 +177,15 @@ public class JavaFXLaunchApp extends Application {
             return homeOfView(tab);
         });
 
-        statusBar = new StatusBar();
+        projectElement = new ProjectStatusElement();
+        caretElement = new CaretStatusElement();
+        lineSeparatorElement = new LineSeparatorStatusElement();
+        progressElement = new ProgressStatusElement();
+        statusBar = new FxStatusBar(StatusElementRegistry.discover(List.of(
+                new StatusElement("project", FxStatusAlignment.LEFT, 0, projectElement),
+                new StatusElement("progress", FxStatusAlignment.CENTER, 0, progressElement),
+                new StatusElement("caret", FxStatusAlignment.RIGHT, 10, caretElement),
+                new StatusElement("line-separator", FxStatusAlignment.RIGHT, 20, lineSeparatorElement))));
         borderPane.setBottom(statusBar);
 
         // The selected project follows the navigator selection (handled by the navigator itself) and,
@@ -210,15 +229,15 @@ public class JavaFXLaunchApp extends Application {
         stage.setTitle(WindowTitles.of(projectRegistry.getSelected()));
         projectRegistry.selectedProjectProperty().subscribe(project -> {
             stage.setTitle(WindowTitles.of(project));
-            statusBar.setProject(project == null ? null : project.getDisplayName());
+            projectElement.setProject(project == null ? null : project.getDisplayName());
             // Undo/Redo of file operations apply to the selected project's own history.
             FileUndoManager.getDefault().setScope(project == null ? null : project.getPath());
         });
         if (activeDocument != null) {
             activeDocument.subscribe(this::selectProjectOf);
-            activeDocument.flatMap(EditorDocument::caretInfoProperty).subscribe(statusBar::setCaretInfo);
-            activeDocument.flatMap(EditorDocument::lineSeparatorProperty).subscribe(statusBar::setLineSeparator);
-            statusBar.setOnLineSeparatorChange(separator -> {
+            activeDocument.flatMap(EditorDocument::caretInfoProperty).subscribe(caretElement::setInfo);
+            activeDocument.flatMap(EditorDocument::lineSeparatorProperty).subscribe(lineSeparatorElement::setSeparator);
+            lineSeparatorElement.setOnChange(separator -> {
                 EditorDocument document = activeDocument.getValue();
                 if (document != null) {
                     document.setLineSeparator(separator);
@@ -880,18 +899,18 @@ public class JavaFXLaunchApp extends Application {
     private void updateLoadingProgress() {
         File current = loads.current();
         if (current == null) {
-            statusBar.hideProgress();
+            progressElement.hide();
             watchScanProgress();
             return;
         }
         int loading = loads.size();
         if (loading > 1) {
-            statusBar.showProgress(NbBundle.getMessage(JavaFXLaunchApp.class,
+            progressElement.show(NbBundle.getMessage(JavaFXLaunchApp.class,
                     "StatusBar.openingProjects", loading), this::cancelAllProjectLoading);
             return;
         }
         String path = loads.currentPath();
-        statusBar.showProgress(NbBundle.getMessage(JavaFXLaunchApp.class,
+        progressElement.show(NbBundle.getMessage(JavaFXLaunchApp.class,
                 "StatusBar.openingProject", current.getName()), () -> cancelProjectLoading(path));
     }
 
@@ -918,11 +937,11 @@ public class JavaFXLaunchApp extends Application {
                 return;
             }
             if (IndexingManager.getDefault().isIndexing()) {
-                statusBar.showProgress(NbBundle.getMessage(JavaFXLaunchApp.class,
+                progressElement.show(NbBundle.getMessage(JavaFXLaunchApp.class,
                         "StatusBar.scanningProjects"), null);
                 pollScanProgress(polls + 1, true);
             } else if (scanSeen) {
-                statusBar.hideProgress();
+                progressElement.hide();
                 scanWatchActive.set(false);
             } else if (polls < SCAN_START_GRACE_POLLS) {
                 pollScanProgress(polls + 1, false);

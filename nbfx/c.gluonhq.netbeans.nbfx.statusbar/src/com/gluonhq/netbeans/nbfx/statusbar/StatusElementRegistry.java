@@ -53,9 +53,20 @@ public final class StatusElementRegistry {
      * @return the elements, ordered by slot, position and id
      */
     public static List<StatusElement> discover() {
+        return discover(List.of());
+    }
+
+    /**
+     * Discovers the registered status elements and merges {@code additional} (for example elements a
+     * window creates programmatically and keeps a reference to) into the ordered result.
+     *
+     * @param additional extra elements to include
+     * @return all elements, ordered by slot, position and id
+     */
+    public static List<StatusElement> discover(List<StatusElement> additional) {
         Lookup lookup = Lookups.forPath(FxLayer.STATUS);
         FileObject folder = FileUtil.getConfigFile(FxLayer.STATUS);
-        List<StatusElement> elements = new ArrayList<>();
+        List<StatusElement> elements = new ArrayList<>(additional);
         for (FxStatusElement element : lookup.lookupAll(FxStatusElement.class)) {
             FileObject file = folder == null ? null : folder.getFileObject(element.getId(), "instance");
             FxStatusAlignment alignment = file == null
