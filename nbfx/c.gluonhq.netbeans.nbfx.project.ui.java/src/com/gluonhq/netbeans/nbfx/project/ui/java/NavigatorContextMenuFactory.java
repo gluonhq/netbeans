@@ -11,6 +11,7 @@ import com.gluonhq.netbeans.nbfx.file.actions.DesktopActions;
 import com.gluonhq.netbeans.nbfx.file.actions.FileClipboardActions;
 import com.gluonhq.netbeans.nbfx.project.ui.java.utils.NavigatorIcons;
 import com.gluonhq.netbeans.nbfx.project.ui.java.utils.PackageScanner;
+import com.gluonhq.netbeans.nbfx.project.ui.java.utils.RenameActions;
 import com.gluonhq.netbeans.nbfx.project.ui.utils.Projects;
 
 import java.io.File;
@@ -107,6 +108,7 @@ final class NavigatorContextMenuFactory<T> {
             menu.getItems().addAll(
                     new SeparatorMenuItem(),
                     deleteItem(clicked),
+                    renameItem(fo),
                     new SeparatorMenuItem());
             List<MenuItem> contributed = new ArrayList<>();
             for (FileContextMenuContributor contributor : Lookup.getDefault().lookupAll(FileContextMenuContributor.class)) {
@@ -140,6 +142,7 @@ final class NavigatorContextMenuFactory<T> {
             if (canCutCopy) {
                 menu.getItems().addAll(
                         deleteItem(clicked),
+                        renameItem(fo),
                         new SeparatorMenuItem());
             }
             addFolderContributions(menu, List.of(fo));
@@ -341,6 +344,13 @@ final class NavigatorContextMenuFactory<T> {
         menuItem.setAccelerator(new KeyCodeCombination(KeyCode.DELETE));
         menuItem.setOnAction(e -> host.deleteItems(List.of(item)));
         return menuItem;
+    }
+
+    private static MenuItem renameItem(FileObject fo) {
+        MenuItem item = new MenuItem(message("ContextMenu.rename"));
+        item.setAccelerator(new KeyCodeCombination(KeyCode.F2));
+        item.setOnAction(e -> RenameActions.rename(fo));
+        return item;
     }
 
     private MenuItem deleteManyItem(List<TreeItem<T>> deletable) {
