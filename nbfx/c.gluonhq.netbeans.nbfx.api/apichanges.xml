@@ -24,6 +24,20 @@
             <class package="com.gluonhq.netbeans.nbfx.api.actions" name="ActionLayerReader"/>
             <class package="com.gluonhq.netbeans.nbfx.api.actions" name="LayerMenuBuilder"/>
         </change>
+        <change id="keymap.spi">
+            <api name="netbeansfx_api"/>
+            <summary>User-configurable keyboard map for commands.</summary>
+            <version major="1" minor="0"/>
+            <date day="9" month="10" year="2026"/>
+            <author login="sven"/>
+            <compatibility addition="yes" semantic="compatible"/>
+            <description>
+                Adds <code>KeyMap</code>, letting the user override the accelerator of a command;
+                <code>LayerMenuBuilder</code> applies the override when building menu items. Under
+                development until the MVP freeze.
+            </description>
+            <class package="com.gluonhq.netbeans.nbfx.api.actions" name="KeyMap"/>
+        </change>
     </changes>
     <htmlcontents>
         <head>
