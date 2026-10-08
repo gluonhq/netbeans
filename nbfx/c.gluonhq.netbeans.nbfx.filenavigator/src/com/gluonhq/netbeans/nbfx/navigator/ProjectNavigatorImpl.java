@@ -1,5 +1,7 @@
 package com.gluonhq.netbeans.nbfx.navigator;
 
+import com.gluonhq.netbeans.nbfx.annotations.FxViewLocation;
+import com.gluonhq.netbeans.nbfx.annotations.FxViewRegistration;
 import com.gluonhq.netbeans.nbfx.api.NavigatorProvider;
 import com.gluonhq.netbeans.nbfx.navigator.utils.DeleteActions;
 import com.gluonhq.netbeans.nbfx.navigator.utils.NavigatorIcons;
@@ -51,6 +53,8 @@ import static org.netbeans.api.java.project.JavaProjectConstants.SOURCES_TYPE_JA
 import static org.netbeans.api.java.project.JavaProjectConstants.SOURCES_TYPE_RESOURCES;
 
 @ServiceProvider(service = NavigatorProvider.class, position=10)
+@FxViewRegistration(displayName = "Projects",
+        location = FxViewLocation.LEFT, position = 10, navigator = true)
 public class ProjectNavigatorImpl extends AbstractNavigatorProvider<ProjectEntry> {
 
     private static final Logger LOG = Logger.getLogger(ProjectNavigatorImpl.class.getName());

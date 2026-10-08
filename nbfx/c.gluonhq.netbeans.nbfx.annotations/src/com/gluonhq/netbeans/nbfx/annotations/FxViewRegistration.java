@@ -36,8 +36,12 @@ import java.lang.annotation.Target;
 @Target(ElementType.TYPE)
 public @interface FxViewRegistration {
 
-    /** The stable identifier of the view, used to persist and restore its tab. */
-    String id();
+    /**
+     * The stable identifier of the view, used to persist and restore its tab. Defaults to the
+     * annotated class's binary name, which matches the default view id; a view with several
+     * instances must set a distinct id per instance.
+     */
+    String id() default "";
 
     /** The display name of the tab; may be a {@code #key} bundle reference. */
     String displayName();
