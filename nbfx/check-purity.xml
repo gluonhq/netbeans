@@ -45,6 +45,9 @@
                 <!-- Quarantined: hides the Swing main window until the window system is fully
                      replaced. Must not be used by any other nbfx code. -->
                 <exclude name="**/SwingWindowSuppressor.java"/>
+                <!-- Quarantined: the macOS application menu (Preferences/Quit) has no JavaFX API;
+                     the only mechanism is the AWT Desktop handlers, routing to the FX dialogs. -->
+                <exclude name="**/MacApplicationMenu.java"/>
                 <!-- Headless expression SPI (AccessibilityQueryImplementation2.Result) uses the
                      javax.swing.event.ChangeListener listener type; no UI is involved. -->
                 <exclude name="**/ProjectModuleInfoAccessibilityQuery.java"/>

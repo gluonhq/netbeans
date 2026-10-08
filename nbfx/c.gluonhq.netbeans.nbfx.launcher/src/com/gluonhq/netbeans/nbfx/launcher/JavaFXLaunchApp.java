@@ -32,6 +32,9 @@ import com.gluonhq.netbeans.nbfx.windows.ViewRegistration;
 import com.gluonhq.netbeans.nbfx.windows.ViewRegistry;
 
 import com.gluonhq.netbeans.nbfx.api.ContentManager;
+import com.gluonhq.netbeans.nbfx.api.actions.ActionIds;
+import com.gluonhq.netbeans.nbfx.api.actions.ActionRegistry;
+import com.gluonhq.netbeans.nbfx.api.actions.Command;
 import com.gluonhq.netbeans.nbfx.api.editor.EditorContext;
 import com.gluonhq.netbeans.nbfx.api.editor.EditorDocument;
 import com.gluonhq.netbeans.nbfx.api.editor.EditorSettings;
@@ -268,16 +271,12 @@ public class JavaFXLaunchApp extends Application {
         // unsaved changes, then request shutdown. Actual teardown (persist +
         // exit) is centralized in stop(), invoked by Platform.exit().
         stage.setOnCloseRequest(event -> {
-            if (!confirmClose()) {
+            if (!requestQuit()) {
                 event.consume();
-                return;
             }
-            // Capture while the window is still showing, so editor scroll (top visible line) can be
-            // read via screen coordinates before the stage is hidden by Platform.exit().
-            captureSession();
-            projectStateCaptured = true;
-            Platform.exit();
         });
+        // On macOS, Preferences and Quit live in the application menu.
+        MacApplicationMenu.install(this::openPreferences, this::requestQuit);
 
         // Everything the IDE knows about the open projects comes from the platform's filesystem
         // layer, which does not see changes made outside the IDE until it is refreshed. Coming back
@@ -291,6 +290,30 @@ public class JavaFXLaunchApp extends Application {
 
     private boolean confirmClose() {
         return CloseConfirmation.confirmClose(EditorContexts.documentsSnapshot());
+    }
+
+    /**
+     * Confirms unsaved changes, captures the session and exits. Returns {@code false} when the user
+     * cancels; the caller keeps the window open then.
+     */
+    private boolean requestQuit() {
+        if (!confirmClose()) {
+            return false;
+        }
+        // Capture while the window is still showing, so editor scroll (top visible line) can be read
+        // via screen coordinates before the stage is hidden by Platform.exit().
+        captureSession();
+        projectStateCaptured = true;
+        Platform.exit();
+        return true;
+    }
+
+    /** Runs the Options command, so the macOS Preferences… item opens the Options dialog. */
+    private void openPreferences() {
+        ActionRegistry registry = Lookup.getDefault().lookup(ActionRegistry.class);
+        if (registry != null) {
+            registry.find(ActionIds.SELECT_OPTIONS).ifPresent(Command::run);
+        }
     }
 
     /**

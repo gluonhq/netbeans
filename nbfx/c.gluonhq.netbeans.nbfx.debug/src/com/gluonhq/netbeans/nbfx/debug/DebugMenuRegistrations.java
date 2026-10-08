@@ -27,12 +27,14 @@ import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.DEBUG_STOP;
 import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.TOGGLE_BREAKPOINT;
 
 import com.gluonhq.netbeans.nbfx.annotations.FxActionReference;
+import com.gluonhq.netbeans.nbfx.annotations.FxMenuRegistration;
 
 /**
  * Declares the Debug menu entries in the layer.
  * <p>
  * This class carries metadata only; it is never instantiated.
  */
+@FxMenuRegistration(id = "Debug", position = 50)
 @FxActionReference(id = DEBUG_FILE, path = "Menus/Debug", position = 10)
 @FxActionReference(id = DEBUG_CONTINUE, path = "Menus/Debug", position = 20, separatorBefore = true)
 @FxActionReference(id = DEBUG_STEP_OVER, path = "Menus/Debug", position = 30)

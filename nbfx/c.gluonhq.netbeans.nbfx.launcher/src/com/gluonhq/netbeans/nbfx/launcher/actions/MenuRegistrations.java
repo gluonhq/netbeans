@@ -52,15 +52,22 @@ import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.SELECT_USAGES;
 import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.UNDO;
 
 import com.gluonhq.netbeans.nbfx.annotations.FxActionReference;
+import com.gluonhq.netbeans.nbfx.annotations.FxMenuRegistration;
 
 /**
- * Declares the main window's Edit menu entries and tool bar contents in the layer, so the UI is
- * assembled from registrations rather than hard-coded id lists. The processor turns each reference
- * into an {@code NbFx/Menus/Edit/*.ref} or {@code NbFx/Toolbars/<bar>/*.ref} layer entry that
+ * Declares the main window's menus and their entries in the layer, so the UI is assembled from
+ * registrations rather than hard-coded lists. The processor turns each reference into an
+ * {@code NbFx/Menus/<menu>/*.ref} or {@code NbFx/Toolbars/<bar>/*.ref} layer entry that
  * {@link ActionBars} reads.
  * <p>
  * This class carries metadata only; it is never instantiated.
  */
+@FxMenuRegistration(id = "File", position = 10)
+@FxMenuRegistration(id = "Edit", position = 20)
+@FxMenuRegistration(id = "View", position = 30)
+@FxMenuRegistration(id = "Tools", position = 60)
+@FxMenuRegistration(id = "Window", position = 70)
+@FxMenuRegistration(id = "Help", position = 90)
 @FxActionReference(id = NEW_PROJECT, path = "Menus/File", position = 10)
 @FxActionReference(id = NEW_FILE, path = "Menus/File", position = 15)
 @FxActionReference(id = OPEN_PROJECT, path = "Menus/File", position = 20)

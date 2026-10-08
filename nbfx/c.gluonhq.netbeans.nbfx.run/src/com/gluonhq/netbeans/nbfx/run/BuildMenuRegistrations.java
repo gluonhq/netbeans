@@ -25,6 +25,7 @@ import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.RUN;
 import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.TEST;
 
 import com.gluonhq.netbeans.nbfx.annotations.FxActionReference;
+import com.gluonhq.netbeans.nbfx.annotations.FxMenuRegistration;
 
 /**
  * Declares the Build menu entries in the layer, so the menu is assembled from registrations. The
@@ -32,6 +33,7 @@ import com.gluonhq.netbeans.nbfx.annotations.FxActionReference;
  * <p>
  * This class carries metadata only; it is never instantiated.
  */
+@FxMenuRegistration(id = "Build", position = 40)
 @FxActionReference(id = BUILD, path = "Menus/Build", position = 10)
 @FxActionReference(id = CLEAN_BUILD, path = "Menus/Build", position = 20)
 @FxActionReference(id = CLEAN, path = "Menus/Build", position = 30, separatorBefore = true)

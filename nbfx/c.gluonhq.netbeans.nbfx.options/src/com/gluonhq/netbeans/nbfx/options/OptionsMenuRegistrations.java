@@ -23,11 +23,11 @@ import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.SELECT_OPTIONS;
 import com.gluonhq.netbeans.nbfx.annotations.FxActionReference;
 
 /**
- * Declares the Window ▸ Options entry in the layer.
+ * Declares the Tools ▸ Options entry in the layer.
  * <p>
  * This class carries metadata only; it is never instantiated.
  */
-@FxActionReference(id = SELECT_OPTIONS, path = "Menus/Window", position = 58)
+@FxActionReference(id = SELECT_OPTIONS, path = "Menus/Tools", position = 20)
 final class OptionsMenuRegistrations {
 
     private OptionsMenuRegistrations() {

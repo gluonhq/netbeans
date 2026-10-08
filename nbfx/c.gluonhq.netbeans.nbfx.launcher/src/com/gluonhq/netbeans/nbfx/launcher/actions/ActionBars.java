@@ -290,23 +290,15 @@ public final class ActionBars {
      * window regardless of which window has focus. Save All and project actions stay global.
      */
     public MenuBar createMenuBar(ObservableValue<EditorDocument> mainScope) {
-        Menu fileMenu = createFileMenu(mainScope);
-        Menu editMenu = createEditMenu(mainScope, treeFocused);
-        Menu viewMenu = createViewMenu();
-        Menu buildMenu = createBuildMenu(mainScope);
-        Menu debugMenu = createDebugMenu(mainScope);
-        Menu windowMenu = createWindowMenu(mainScope);
-
-        Menu helpMenu = new Menu(message("Menu.help"));
-        List<Menu> menus = new ArrayList<>(List.of(fileMenu, editMenu, viewMenu));
-        if (buildMenu != null) {
-            menus.add(buildMenu);
+        List<Menu> menus = new ArrayList<>();
+        // The menus are declared in the layer (NbFx/Menus), so the launcher does not know any of them:
+        // each module contributes its own menu, in position order.
+        for (MenuSpec spec : menuSpecs()) {
+            Menu menu = createRegisteredMenu(spec, mainScope);
+            if (menu != null && !menu.getItems().isEmpty()) {
+                menus.add(menu);
+            }
         }
-        if (debugMenu != null) {
-            menus.add(debugMenu);
-        }
-        menus.add(windowMenu);
-        menus.add(helpMenu);
         MenuBar menuBar = new MenuBar(menus.toArray(Menu[]::new));
         // TODO: Fix https://bugs.openjdk.org/browse/JDK-8388508
         menuBar.setUseSystemMenuBar(true);
@@ -314,45 +306,75 @@ public final class ActionBars {
     }
 
     /**
-     * Builds the Build menu from the {@code NbFx/Menus/Build} layer entries, or {@code null} when no
-     * build commands are registered (the module that provides them may not be present).
+     * Builds the menu declared by {@code spec}: the shell's dynamic menus (File with the Recent
+     * Projects submenu, Edit with the file-vs-editor dispatch, View with its toggles, Window with the
+     * open projects and the configure submenu) have their own builders; every other menu is built
+     * from its layer references.
      */
-    private Menu createBuildMenu(ObservableValue<EditorDocument> mainScope) {
-        List<FxActionRef> refs = ActionLayerReader.read("NbFx/Menus/Build");
-        if (refs.isEmpty()) {
-            return null;
+    private Menu createRegisteredMenu(MenuSpec spec, ObservableValue<EditorDocument> mainScope) {
+        Menu menu = switch (spec.id()) {
+            case "File" -> createFileMenu(mainScope);
+            case "Edit" -> createEditMenu(mainScope, treeFocused);
+            case "View" -> createViewMenu();
+            case "Window" -> createWindowMenu(mainScope);
+            default -> createRefMenu(spec, mainScope);
+        };
+        if (menu != null && !spec.title().isEmpty()) {
+            menu.setText(spec.title());
         }
-        Menu buildMenu = new Menu(message("Menu.build"));
-        for (FxActionRef ref : refs) {
-            MenuItem item = createOptionalMenuItem(ref.actionId(), mainScope, null);
-            if (item == null) {
-                continue;
-            }
-            addSeparatorIfNeeded(buildMenu, ref);
-            buildMenu.getItems().add(item);
-        }
-        return buildMenu.getItems().isEmpty() ? null : buildMenu;
+        return menu;
     }
 
-    /**
-     * Builds the Debug menu from the {@code NbFx/Menus/Debug} layer entries, or {@code null} when no
-     * debug commands are registered (the module that provides them may not be present).
-     */
-    private Menu createDebugMenu(ObservableValue<EditorDocument> mainScope) {
-        List<FxActionRef> refs = ActionLayerReader.read("NbFx/Menus/Debug");
-        if (refs.isEmpty()) {
+    /** Builds a menu from the layer references in {@code spec}, or {@code null} when it has none. */
+    private Menu createRefMenu(MenuSpec spec, ObservableValue<EditorDocument> mainScope) {
+        if (spec.refs().isEmpty()) {
             return null;
         }
-        Menu debugMenu = new Menu(message("Menu.debug"));
-        for (FxActionRef ref : refs) {
+        Menu menu = new Menu(spec.title().isEmpty() ? spec.id() : spec.title());
+        for (FxActionRef ref : spec.refs()) {
             MenuItem item = createOptionalMenuItem(ref.actionId(), mainScope, null);
             if (item == null) {
                 continue;
             }
-            addSeparatorIfNeeded(debugMenu, ref);
-            debugMenu.getItems().add(item);
+            addSeparatorIfNeeded(menu, ref);
+            menu.getItems().add(item);
         }
-        return debugMenu.getItems().isEmpty() ? null : debugMenu;
+        return menu.getItems().isEmpty() ? null : menu;
+    }
+
+    /** The menus declared under {@code NbFx/Menus}, ordered by their {@code position}. */
+    private static List<MenuSpec> menuSpecs() {
+        FileObject root = FileUtil.getConfigFile("NbFx/Menus");
+        if (root == null) {
+            return List.of();
+        }
+        List<MenuSpec> specs = new ArrayList<>();
+        for (FileObject folder : root.getChildren()) {
+            if (!folder.isFolder()) {
+                continue;
+            }
+            int position = folder.getAttribute("position") instanceof Integer p ? p : Integer.MAX_VALUE;
+            String displayName = folder.getAttribute("displayName") instanceof String s ? s : "";
+            specs.add(new MenuSpec(folder.getName(), menuTitle(folder.getName(), displayName), position,
+                    ActionLayerReader.read(folder)));
+        }
+        specs.sort(Comparator.comparingInt(MenuSpec::position).thenComparing(MenuSpec::id));
+        return specs;
+    }
+
+    private static String menuTitle(String id, String displayName) {
+        if (!displayName.isEmpty()) {
+            return displayName;
+        }
+        try {
+            return message("Menu." + id.toLowerCase());
+        } catch (RuntimeException ex) {
+            return id;
+        }
+    }
+
+    /** A menu declared in the layer: its id, title, order and references. */
+    private record MenuSpec(String id, String title, int position, List<FxActionRef> refs) {
     }
 
     /**

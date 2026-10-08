@@ -16,20 +16,22 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package com.gluonhq.netbeans.nbfx.plugins;
+package com.gluonhq.netbeans.nbfx.annotations;
 
-import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.SELECT_PLUGINS;
-
-import com.gluonhq.netbeans.nbfx.annotations.FxActionReference;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
 /**
- * Declares the Tools ▸ Plugins entry in the layer.
- * <p>
- * This class carries metadata only; it is never instantiated.
+ * Container for repeated {@link FxMenuRegistration} annotations.
+ *
+ * @since 1.0
  */
-@FxActionReference(id = SELECT_PLUGINS, path = "Menus/Tools", position = 10)
-final class PluginsMenuRegistrations {
+@Retention(RetentionPolicy.SOURCE)
+@Target(ElementType.TYPE)
+public @interface FxMenuRegistrations {
 
-    private PluginsMenuRegistrations() {
-    }
+    /** The repeated registrations. */
+    FxMenuRegistration[] value();
 }
