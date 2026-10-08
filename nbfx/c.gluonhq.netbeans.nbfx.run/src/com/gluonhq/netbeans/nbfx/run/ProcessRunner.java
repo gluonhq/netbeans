@@ -25,6 +25,7 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.function.Consumer;
 
 /**
  * Runs an external process in the background and streams its output into a console. The error
@@ -37,14 +38,21 @@ final class ProcessRunner {
     private ProcessRunner() {
     }
 
-    /** Starts {@code command} in {@code dir} on a daemon thread, streaming into {@code console}. */
-    static void run(List<String> command, Path dir, FxConsole console) {
-        Thread thread = new Thread(() -> execute(command, dir, console), "nbfx-run");
+    /**
+     * Starts {@code command} in {@code dir} on a daemon thread, streaming into {@code console}.
+     *
+     * @param onStart  invoked with the started process, so the caller can cancel it; may be {@code null}
+     * @param onFinish invoked once the process has finished (or failed to start); may be {@code null}
+     */
+    static void run(List<String> command, Path dir, FxConsole console,
+            Consumer<Process> onStart, Runnable onFinish) {
+        Thread thread = new Thread(() -> execute(command, dir, console, onStart, onFinish), "nbfx-run");
         thread.setDaemon(true);
         thread.start();
     }
 
-    private static void execute(List<String> command, Path dir, FxConsole console) {
+    private static void execute(List<String> command, Path dir, FxConsole console,
+            Consumer<Process> onStart, Runnable onFinish) {
         console.append("$ " + String.join(" ", command) + "\n");
         Process process = null;
         try {
@@ -52,6 +60,9 @@ final class ProcessRunner {
                     .directory(dir.toFile())
                     .redirectErrorStream(true)
                     .start();
+            if (onStart != null) {
+                onStart.accept(process);
+            }
             try (BufferedReader reader = new BufferedReader(
                     new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
                 String line;
@@ -68,6 +79,10 @@ final class ProcessRunner {
                 process.destroy();
             }
             console.append("\n[interrupted]\n");
+        } finally {
+            if (onFinish != null) {
+                onFinish.run();
+            }
         }
     }
 }

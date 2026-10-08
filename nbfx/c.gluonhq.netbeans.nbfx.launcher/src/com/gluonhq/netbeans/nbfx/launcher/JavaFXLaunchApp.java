@@ -39,6 +39,7 @@ import com.gluonhq.netbeans.nbfx.api.file.FileSelectionContext;
 import com.gluonhq.netbeans.nbfx.api.NavigatorProvider;
 import com.gluonhq.netbeans.nbfx.api.project.OpenProject;
 import com.gluonhq.netbeans.nbfx.api.project.ProjectRegistry;
+import com.gluonhq.netbeans.nbfx.api.progress.FxProgress;
 import com.gluonhq.netbeans.nbfx.api.view.ViewProvider;
 import com.gluonhq.netbeans.nbfx.file.actions.FileUndoManager;
 import java.io.File;
@@ -186,6 +187,10 @@ public class JavaFXLaunchApp extends Application {
         caretElement = new CaretStatusElement();
         lineSeparatorElement = new LineSeparatorStatusElement();
         progressElement = new ProgressStatusElement();
+        FxProgressImpl progress = fxProgress();
+        if (progress != null) {
+            progress.bind(progressElement);
+        }
         statusBar = new FxStatusBar(StatusElementRegistry.discover(List.of(
                 new StatusElement("project", FxStatusAlignment.LEFT, 0, projectElement),
                 new StatusElement("progress", FxStatusAlignment.CENTER, 0, progressElement),
@@ -784,6 +789,12 @@ public class JavaFXLaunchApp extends Application {
         }
         LOG.warning("No WindowEnvironmentImpl found in the Lookup");
         return null;
+    }
+
+    /** The status bar progress service, or {@code null} if not registered. */
+    private static FxProgressImpl fxProgress() {
+        FxProgress progress = Lookup.getDefault().lookup(FxProgress.class);
+        return progress instanceof FxProgressImpl impl ? impl : null;
     }
 
     /** Marks a navigator reveal as in progress (or finished), so panes do not steal focus back. */

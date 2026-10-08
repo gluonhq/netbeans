@@ -18,10 +18,12 @@
  */
 package com.gluonhq.netbeans.nbfx.run;
 
+import com.gluonhq.netbeans.nbfx.api.progress.FxProgress;
 import com.gluonhq.netbeans.nbfx.output.FxConsole;
 import com.gluonhq.netbeans.nbfx.output.FxOutput;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Logger;
 import org.openide.util.Lookup;
 import org.openide.util.NbBundle;
@@ -32,7 +34,8 @@ import org.openide.util.NbBundle;
  * menu command and the navigator context menu.
  * <p>
  * The output service is resolved at call time and writing to a console makes the Output view show
- * itself, so a build always brings its output on screen.
+ * itself, so a build always brings its output on screen. While the tool runs, the status bar shows
+ * a cancellable progress, the way NetBeans does.
  *
  * @since 1.0
  */
@@ -55,12 +58,28 @@ final class BuildRunner {
         FxConsole console = output.console(consoleName);
         console.clear();
         console.show();
+
         BuildTool tool = BuildTool.detect(dir);
         List<String> command = tool.commandLine(dir, action);
         if (command == null) {
             console.append(NbBundle.getMessage(BuildRunner.class, "BuildCommand.noTool") + "\n");
             return;
         }
-        ProcessRunner.run(command, dir, console);
+
+        FxProgress progress = Lookup.getDefault().lookup(FxProgress.class);
+        AtomicReference<Process> process = new AtomicReference<>();
+        if (progress != null) {
+            progress.start(consoleName, () -> {
+                Process running = process.get();
+                if (running != null) {
+                    running.destroy();
+                }
+            });
+        }
+        ProcessRunner.run(command, dir, console, process::set, () -> {
+            if (progress != null) {
+                progress.finish();
+            }
+        });
     }
 }
