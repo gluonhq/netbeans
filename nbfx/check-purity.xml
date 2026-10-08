@@ -73,6 +73,9 @@
                 <!-- The launcher bootstrap still requires org.openide.windows for the quarantined
                      Swing-window suppression above. -->
                 <exclude name="c.gluonhq.netbeans.nbfx.launcher/nbproject/project.xml"/>
+                <!-- The UI module still bridges open/close to the platform via OpenProjects
+                     (projectuiapi.base); to be replaced by the nbfx-native project model. -->
+                <exclude name="c.gluonhq.netbeans.nbfx.ui/nbproject/project.xml"/>
                 <or>
                     <contains text="org.openide.awt"/>
                     <contains text="org.openide.nodes"/>

@@ -18,7 +18,8 @@
  */
 package com.gluonhq.netbeans.nbfx.launcher;
 
-import com.gluonhq.netbeans.nbfx.launcher.project.VersioningOptOut;
+import com.gluonhq.netbeans.nbfx.ui.JavaFXLaunchApp;
+import com.gluonhq.netbeans.nbfx.ui.project.VersioningOptOut;
 import java.util.logging.Logger;
 import javafx.application.Application;
 import org.openide.modules.ModuleInstall;
