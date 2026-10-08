@@ -284,19 +284,7 @@ public final class ActionBars {
      * window regardless of which window has focus. Save All and project actions stay global.
      */
     public MenuBar createMenuBar(ObservableValue<EditorDocument> mainScope) {
-        Menu fileMenu = new Menu(message("Menu.file"));
-        recentMenu = new Menu(message("Menu.openRecent"));
-      refreshRecentProjects();
-        addMenuItems(fileMenu,
-                createMenuItem(ActionIds.NEW_PROJECT, mainScope, treeFocused),
-                createMenuItem(ActionIds.OPEN_PROJECT, mainScope, treeFocused),
-                recentMenu,
-                createMenuItem(ActionIds.CLOSE_PROJECT, mainScope, treeFocused),
-                createMenuItem(ActionIds.CLOSE_ALL_PROJECTS, mainScope, treeFocused),
-                new SeparatorMenuItem(),
-                createMenuItem(ActionIds.SAVE, mainScope, treeFocused),
-                createMenuItem(ActionIds.SAVE_ALL, mainScope, treeFocused));
-
+        Menu fileMenu = createFileMenu(mainScope);
         Menu editMenu = createEditMenu(mainScope, treeFocused);
         Menu viewMenu = createViewMenu();
         Menu windowMenu = createWindowMenu(mainScope);
@@ -306,6 +294,46 @@ public final class ActionBars {
         // TODO: Fix https://bugs.openjdk.org/browse/JDK-8388508
         menuBar.setUseSystemMenuBar(true);
         return menuBar;
+    }
+
+    /**
+     * Builds the File menu from the {@code NbFx/Menus/File} layer entries, expanding the Recent
+     * Projects placeholder into the dynamically built submenu; falls back to the hard-coded entries
+     * while the layer registration is unavailable.
+     */
+    private Menu createFileMenu(ObservableValue<EditorDocument> mainScope) {
+        Menu fileMenu = new Menu(message("Menu.file"));
+        recentMenu = new Menu(message("Menu.openRecent"));
+        refreshRecentProjects();
+        List<FxActionRef> refs = ActionLayerReader.read("NbFx/Menus/File");
+        if (!refs.isEmpty()) {
+            for (FxActionRef ref : refs) {
+                if (MenuRegistrations.OPEN_RECENT.equals(ref.actionId())) {
+                    fileMenu.getItems().add(recentMenu);
+                    continue;
+                }
+                MenuItem item = createOptionalMenuItem(ref.actionId(), mainScope, treeFocused);
+                if (item == null) {
+                    continue;
+                }
+                if (ref.separatorBefore() && !fileMenu.getItems().isEmpty()
+                        && !(fileMenu.getItems().get(fileMenu.getItems().size() - 1) instanceof SeparatorMenuItem)) {
+                    fileMenu.getItems().add(new SeparatorMenuItem());
+                }
+                fileMenu.getItems().add(item);
+            }
+            return fileMenu;
+        }
+        addMenuItems(fileMenu,
+                createMenuItem(ActionIds.NEW_PROJECT, mainScope, treeFocused),
+                createMenuItem(ActionIds.OPEN_PROJECT, mainScope, treeFocused),
+                recentMenu,
+                createMenuItem(ActionIds.CLOSE_PROJECT, mainScope, treeFocused),
+                createMenuItem(ActionIds.CLOSE_ALL_PROJECTS, mainScope, treeFocused),
+                new SeparatorMenuItem(),
+                createMenuItem(ActionIds.SAVE, mainScope, treeFocused),
+                createMenuItem(ActionIds.SAVE_ALL, mainScope, treeFocused));
+        return fileMenu;
     }
 
     /**

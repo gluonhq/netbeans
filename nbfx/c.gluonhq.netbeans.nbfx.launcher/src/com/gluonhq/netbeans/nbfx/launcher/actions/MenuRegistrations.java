@@ -18,6 +18,8 @@
  */
 package com.gluonhq.netbeans.nbfx.launcher.actions;
 
+import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.CLOSE_ALL_PROJECTS;
+import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.CLOSE_PROJECT;
 import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.COPY;
 import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.CUT;
 import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.FIND;
@@ -46,6 +48,13 @@ import com.gluonhq.netbeans.nbfx.annotations.FxActionReference;
  * <p>
  * This class carries metadata only; it is never instantiated.
  */
+@FxActionReference(id = NEW_PROJECT, path = "Menus/File", position = 10)
+@FxActionReference(id = OPEN_PROJECT, path = "Menus/File", position = 20)
+@FxActionReference(id = MenuRegistrations.OPEN_RECENT, path = "Menus/File", position = 30)
+@FxActionReference(id = CLOSE_PROJECT, path = "Menus/File", position = 40)
+@FxActionReference(id = CLOSE_ALL_PROJECTS, path = "Menus/File", position = 50)
+@FxActionReference(id = SAVE, path = "Menus/File", position = 60, separatorBefore = true)
+@FxActionReference(id = SAVE_ALL, path = "Menus/File", position = 70)
 @FxActionReference(id = UNDO, path = "Menus/Edit", position = 10)
 @FxActionReference(id = REDO, path = "Menus/Edit", position = 20)
 @FxActionReference(id = CUT, path = "Menus/Edit", position = 30, separatorBefore = true)
@@ -70,6 +79,9 @@ import com.gluonhq.netbeans.nbfx.annotations.FxActionReference;
 @FxActionReference(id = UNDO, path = "Toolbars/Edit", position = 10)
 @FxActionReference(id = REDO, path = "Toolbars/Edit", position = 20)
 final class MenuRegistrations {
+
+    /** Placeholder id for the Recent Projects submenu, which the window builds dynamically. */
+    static final String OPEN_RECENT = "openRecent";
 
     private MenuRegistrations() {
     }
