@@ -1,5 +1,8 @@
 package com.gluonhq.netbeans.nbfx.project.ui.java.utils;
 
+import com.gluonhq.netbeans.nbfx.project.ui.api.ProjectKindProvider;
+
+import java.net.URL;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -7,13 +10,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.logging.Logger;
 
-import com.gluonhq.netbeans.nbfx.project.ui.api.ProjectKindProvider;
-
 import org.netbeans.api.java.queries.AccessibilityQuery;
 import org.netbeans.api.java.queries.AccessibilityQuery.Accessibility;
 import org.netbeans.api.project.Project;
 import org.openide.filesystems.FileObject;
 import org.openide.util.Exceptions;
+import org.openide.util.Lookup;
 import org.openide.util.RequestProcessor;
 
 import javafx.application.Platform;
@@ -158,7 +160,8 @@ public final class NavigatorIcons {
             Image image = null;
             try {
                 if (iconName != null) {
-                    image = new Image(NavigatorIcons.class.getResource(iconName).toExternalForm());
+                    URL url = resolveIcon(iconName);
+                    image = url != null ? new Image(url.toExternalForm()) : null;
                 } else {
                     // If no iconName is provided, a package icon is used, for which the package accessibility
                     // of the file object is determined, which requires more time.
@@ -181,6 +184,24 @@ public final class NavigatorIcons {
                 iconRequestsMap.remove(cacheKey);
             }
         });
+    }
+
+    /**
+     * Resolves an icon resource name against this module first, then against every registered
+     * {@link ProjectKindProvider}'s module, so each project type can ship its own icons.
+     */
+    private static URL resolveIcon(String iconName) {
+        URL url = NavigatorIcons.class.getResource(iconName);
+        if (url != null) {
+            return url;
+        }
+        for (ProjectKindProvider provider : Lookup.getDefault().lookupAll(ProjectKindProvider.class)) {
+            url = provider.getClass().getResource(iconName);
+            if (url != null) {
+                return url;
+            }
+        }
+        return null;
     }
 
     /**
