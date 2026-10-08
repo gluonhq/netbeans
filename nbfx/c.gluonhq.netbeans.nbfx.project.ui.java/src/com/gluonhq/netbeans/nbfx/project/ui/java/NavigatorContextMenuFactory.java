@@ -6,6 +6,7 @@ import com.gluonhq.netbeans.nbfx.api.actions.Command;
 import com.gluonhq.netbeans.nbfx.api.actions.FileContextMenuContributor;
 import com.gluonhq.netbeans.nbfx.api.editor.EditorContext;
 import com.gluonhq.netbeans.nbfx.api.project.OpenProject;
+import com.gluonhq.netbeans.nbfx.api.project.ProjectRegistry;
 import com.gluonhq.netbeans.nbfx.file.actions.DesktopActions;
 import com.gluonhq.netbeans.nbfx.file.actions.FileClipboardActions;
 import com.gluonhq.netbeans.nbfx.project.ui.java.utils.NavigatorIcons;
@@ -51,6 +52,14 @@ final class NavigatorContextMenuFactory<T> {
 
         /** Whether {@code item} can be cut/copied/deleted. */
         boolean isDeletable(TreeItem<T> item);
+
+        /**
+         * Whether {@code item} is a project that can be opened on its own — a subproject in the
+         * logical view, or a project folder in the physical view. Such nodes offer "Open Project".
+         */
+        default boolean isProject(TreeItem<T> item) {
+            return false;
+        }
 
         /** Confirms and deletes the given items, updating the tree. */
         void deleteItems(List<TreeItem<T>> items);
@@ -120,6 +129,9 @@ final class NavigatorContextMenuFactory<T> {
             addFolderContributions(menu, List.of(fo));
         } else {
             // A branch (folder / package).
+            if (host.isProject(clicked)) {
+                menu.getItems().addAll(openProjectItem(fo), new SeparatorMenuItem());
+            }
             menu.getItems().addAll(
                     newItem(),
                     new SeparatorMenuItem());
@@ -243,6 +255,18 @@ final class NavigatorContextMenuFactory<T> {
         if (registry != null) {
             registry.find(actionId).ifPresent(Command::run);
         }
+    }
+
+    /** Opens {@code root} as its own project (used for subprojects shown under a project). */
+    private static MenuItem openProjectItem(FileObject root) {
+        MenuItem item = new MenuItem(message("ContextMenu.openProject"));
+        item.setOnAction(e -> {
+            ProjectRegistry registry = Projects.registry();
+            if (registry != null) {
+                registry.open(root);
+            }
+        });
+        return item;
     }
 
     private MenuItem openItem(TreeItem<T> item, FileObject fo) {

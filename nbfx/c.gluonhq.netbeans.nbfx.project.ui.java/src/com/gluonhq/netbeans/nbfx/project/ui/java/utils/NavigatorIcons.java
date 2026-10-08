@@ -7,13 +7,14 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.logging.Logger;
 
+import com.gluonhq.netbeans.nbfx.project.ui.api.ProjectKindProvider;
+
 import org.netbeans.api.java.queries.AccessibilityQuery;
 import org.netbeans.api.java.queries.AccessibilityQuery.Accessibility;
 import org.netbeans.api.project.Project;
 import org.openide.filesystems.FileObject;
 import org.openide.util.Exceptions;
 import org.openide.util.RequestProcessor;
-import org.netbeans.modules.maven.api.NbMavenProject;
 
 import javafx.application.Platform;
 import javafx.scene.image.Image;
@@ -45,28 +46,8 @@ public final class NavigatorIcons {
 
     private NavigatorIcons() {}
 
-    public static String getProjectIconName(Project project, boolean isMaster, ProjectKinds.ProjectKind kind) {
-        if (kind == ProjectKinds.ProjectKind.MAVEN) {
-            if (isMaster) {
-                return "Maven2Icon.png";
-            } else {
-                NbMavenProject nbMaven = project.getLookup().lookup(NbMavenProject.class);
-                if (nbMaven != null) {
-                    String packaging = nbMaven.getMavenProject().getPackaging();
-                    if ("nbm".equals(packaging)) {
-                        return "nbmicon.png";
-                    } else if ("nbm-application".equals(packaging)) {
-                        return "suiteicon.png";
-                    }
-                }
-                return "jaricon.png";
-            }
-        } else if (kind == ProjectKinds.ProjectKind.GRADLE) {
-            return "gradle.png";
-        } else if (kind == ProjectKinds.ProjectKind.ANT) {
-            return "jdk-project.png";
-        }
-        return null;
+    public static String getProjectIconName(Project project, boolean isMaster, ProjectKindProvider kind) {
+        return kind.iconName(project, isMaster);
     }
 
     public static String getFileIconName(FileObject fileObject) {

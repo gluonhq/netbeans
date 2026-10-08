@@ -6,6 +6,7 @@ import java.util.List;
 
 import javafx.scene.control.TreeItem;
 
+import org.netbeans.api.project.ProjectManager;
 import org.openide.filesystems.FileObject;
 
 /**
@@ -47,6 +48,13 @@ final class NavigatorHosts {
             }
 
             @Override
+            public boolean isProject(TreeItem<FileObject> item) {
+                FileObject fo = item == null ? null : item.getValue();
+                return fo != null && fo.isFolder() && !isProjectRoot(item)
+                        && ProjectManager.getDefault().isProject2(fo) != null;
+            }
+
+            @Override
             public void deleteItems(List<TreeItem<FileObject>> items) {
                 DeleteActions.deleteItems(items, TreeItem::getValue);
             }
@@ -70,6 +78,15 @@ final class NavigatorHosts {
             @Override
             public boolean isDeletable(TreeItem<ProjectEntry> item) {
                 return item != null && !isProjectRoot(item) && DeleteActions.isDeletable(item.getValue());
+            }
+
+            @Override
+            public boolean isProject(TreeItem<ProjectEntry> item) {
+                // A nested NAME node is a subproject (the top-level NAME node is the tree root).
+                ProjectEntry entry = item == null ? null : item.getValue();
+                return entry != null
+                        && entry.getType() == ProjectEntry.Type.NAME
+                        && !isProjectRoot(item);
             }
 
             @Override

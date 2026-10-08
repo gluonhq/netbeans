@@ -3,10 +3,12 @@ package com.gluonhq.netbeans.nbfx.project.ui.java;
 import com.gluonhq.netbeans.nbfx.annotations.FxViewLocation;
 import com.gluonhq.netbeans.nbfx.annotations.FxViewRegistration;
 import com.gluonhq.netbeans.nbfx.api.NavigatorProvider;
+import com.gluonhq.netbeans.nbfx.api.project.ProjectRegistry;
+import com.gluonhq.netbeans.nbfx.project.ui.api.ProjectKindProvider;
+import com.gluonhq.netbeans.nbfx.project.ui.api.ProjectKinds;
 import com.gluonhq.netbeans.nbfx.project.ui.java.utils.DeleteActions;
 import com.gluonhq.netbeans.nbfx.project.ui.java.utils.NavigatorIcons;
 import com.gluonhq.netbeans.nbfx.project.ui.java.utils.PackageScanner;
-import com.gluonhq.netbeans.nbfx.project.ui.java.utils.ProjectKinds;
 import com.gluonhq.netbeans.nbfx.project.ui.utils.Projects;
 import com.gluonhq.netbeans.nbfx.project.ui.java.utils.TreeNav;
 import com.gluonhq.netbeans.nbfx.file.actions.FileDragAndDrop;
@@ -64,7 +66,7 @@ public class ProjectNavigatorImpl extends AbstractNavigatorProvider<ProjectEntry
 
         // Written by the project's loading thread, read by the FX and lazy-node threads.
         private volatile Project project;
-        private volatile ProjectKinds.ProjectKind kind;
+        private volatile ProjectKindProvider kind;
         private volatile Thread loadingThread;
         private volatile boolean loadingCancelled;
         /** Whether the focus ring should keep following this project's restored selection. */
@@ -276,7 +278,17 @@ public class ProjectNavigatorImpl extends AbstractNavigatorProvider<ProjectEntry
                 LOG.info("Selected project item: " + selectedItem);
                 if (selectedItem == null) return;
                 ProjectEntry selectedProjectEntry = selectedItem.getValue();
-                PackageScanner.openFile(selectedProjectEntry);
+                if (selectedProjectEntry != null
+                        && selectedProjectEntry.getType() == ProjectEntry.Type.NAME
+                        && !NavigatorHosts.isProjectRoot(selectedItem)) {
+                    // A subproject: double-clicking opens it as its own project.
+                    ProjectRegistry registry = Projects.registry();
+                    if (registry != null) {
+                        registry.open(selectedProjectEntry.getFileObject());
+                    }
+                } else {
+                    PackageScanner.openFile(selectedProjectEntry);
+                }
             }
          });
     }
@@ -504,7 +516,7 @@ public class ProjectNavigatorImpl extends AbstractNavigatorProvider<ProjectEntry
             LOG.warning("ProjectManager couldn't find a project for " + fileObject);
             return false;
         }
-        state.kind = ProjectKinds.detectProjectKind(state.project);
+        state.kind = ProjectKinds.providerOf(state.project);
         LOG.info("Project loaded: " + state.project + ", kind = " + state.kind);
         installFileChangeListener(state, FileUtil.toPath(state.project.getProjectDirectory()).toFile());
         if (state.loadingCancelled) {
@@ -537,7 +549,7 @@ public class ProjectNavigatorImpl extends AbstractNavigatorProvider<ProjectEntry
 
     private boolean visualize(ProjectRootState state) {
         Project project = state.project;
-        ProjectKinds.ProjectKind kind = state.kind;
+        ProjectKindProvider kind = state.kind;
         if (project == null || kind == null) {
             LOG.warning("visualize() called without project or valid kind");
             return false;
@@ -548,7 +560,7 @@ public class ProjectNavigatorImpl extends AbstractNavigatorProvider<ProjectEntry
         TreeItem<ProjectEntry> rootProjectNode = buildProjectNode(state, project, subprojects.isEmpty(), true);
         if (!subprojects.isEmpty()) {
             ProjectEntry groupEntry = new ProjectEntry(project.getProjectDirectory(),
-                    PackageScanner.getDefaultModulesName(kind == ProjectKinds.ProjectKind.MAVEN), ProjectEntry.Type.MODULES,
+                    ProjectKinds.getSubprojectsGroupName(kind), ProjectEntry.Type.MODULES,
                     ProjectEntry.BADGE.MODULES_BADGE);
             ProjectTreeItem groupNode = new ProjectTreeItem(groupEntry);
             TreeNav.setExpandedInvalidationListener(groupNode, () ->
@@ -575,7 +587,7 @@ public class ProjectNavigatorImpl extends AbstractNavigatorProvider<ProjectEntry
     }
 
     private TreeItem<ProjectEntry> buildProjectNode(ProjectRootState state, Project project, boolean withSources, boolean isRoot) {
-        ProjectKinds.ProjectKind kind = state.kind;
+        ProjectKindProvider kind = state.kind;
         String name = ProjectKinds.getProjectName(project, kind);
         LOG.info("Building project node for " + name);
         String icon = NavigatorIcons.getProjectIconName(project, isRoot && !withSources, kind);

@@ -1,0 +1,48 @@
+package com.gluonhq.netbeans.nbfx.project.ui.api;
+
+import java.util.List;
+import org.netbeans.api.project.Project;
+
+/**
+ * Service provider interface for build-system specific project behaviour in the navigator.
+ *
+ * <p>There is deliberately no closed set of project kinds: a provider identifies itself with an
+ * open-ended {@link #id()} and declares which projects it {@link #recognizes(Project) recognises}.
+ * The first registered provider that recognises a project supplies its display name, subprojects,
+ * subprojects group label and icon. When none recognises it, the built-in generic provider handles
+ * the project (Gradle/Ant heuristics and the {@code ProjectInformation} name).</p>
+ *
+ * <p>Register implementations via {@code @ServiceProvider(service = ProjectKindProvider.class)}.</p>
+ */
+public interface ProjectKindProvider {
+
+    /** A stable, open-ended identifier for this kind (for example {@code "maven"}), used for diagnostics. */
+    String id();
+
+    /** Whether this provider knows how to handle {@code project}. */
+    boolean recognizes(Project project);
+
+    /** Returns the project's display name, or {@code null} to fall back to {@code ProjectInformation}. */
+    default String displayName(Project project) {
+        return null;
+    }
+
+    /** Returns the project's subprojects/modules, or an empty list. */
+    default List<Project> subprojects(Project project) {
+        return List.of();
+    }
+
+    /** Returns the label of the subprojects group node, or {@code null} to use the generic label. */
+    default String subprojectsGroupName() {
+        return null;
+    }
+
+    /**
+     * Returns the navigator icon resource name for the project, or {@code null}.
+     *
+     * @param isMaster whether the project is the root of the navigator tree
+     */
+    default String iconName(Project project, boolean isMaster) {
+        return null;
+    }
+}
