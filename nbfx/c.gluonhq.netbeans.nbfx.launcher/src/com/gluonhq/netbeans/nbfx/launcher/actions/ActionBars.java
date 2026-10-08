@@ -21,6 +21,7 @@ import com.gluonhq.netbeans.nbfx.api.actions.RunnableCommand;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -58,6 +59,7 @@ import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 
 import org.openide.filesystems.FileObject;
+import org.openide.filesystems.FileUtil;
 import org.openide.util.Lookup;
 import org.openide.util.NbBundle;
 
@@ -735,38 +737,48 @@ public final class ActionBars {
      */
     public ToolBarContainer createToolBars(ObservableValue<EditorDocument> mainScope) {
         List<ToolBar> bars = new ArrayList<>();
-        bars.add(createToolBar("file", mainScope, treeFocused,
-                toolbarCommandIds("File", ActionIds.NEW_PROJECT, ActionIds.OPEN_PROJECT,
-                        ActionIds.SAVE, ActionIds.SAVE_ALL)));
-        bars.add(createToolBar("clipboard", mainScope, treeFocused,
-                toolbarCommandIds("Clipboard", ActionIds.CUT, ActionIds.COPY, ActionIds.PASTE,
-                        ActionIds.FIND)));
-        bars.add(createToolBar("edit", mainScope, treeFocused,
-                toolbarCommandIds("Edit", ActionIds.UNDO, ActionIds.REDO)));
-        // The Build bar comes entirely from the layer, so it is absent when no module registers it.
-        List<String> buildCommands = toolbarCommandIds("Build");
-        if (!buildCommands.isEmpty()) {
-            bars.add(createToolBar("Build", mainScope, treeFocused, buildCommands));
+        // The tool bars are declared in the layer (NbFx/Toolbars), so the launcher does not know any
+        // of them: each module contributes its own bar, in position order.
+        for (ToolBarSpec spec : toolbarSpecs()) {
+            bars.add(createToolBar(spec.id(), mainScope, treeFocused, spec.commandIds()));
         }
-        // The Debug bar comes entirely from the layer too.
-        List<String> debugCommands = toolbarCommandIds("Debug");
-        if (!debugCommands.isEmpty()) {
-            bars.add(createToolBar("Debug", mainScope, treeFocused, debugCommands));
+        if (bars.isEmpty()) {
+            // Fallback while no layer registration is available.
+            bars.add(createToolBar("file", mainScope, treeFocused,
+                    List.of(ActionIds.NEW_PROJECT, ActionIds.OPEN_PROJECT, ActionIds.SAVE, ActionIds.SAVE_ALL)));
+            bars.add(createToolBar("clipboard", mainScope, treeFocused,
+                    List.of(ActionIds.CUT, ActionIds.COPY, ActionIds.PASTE, ActionIds.FIND)));
+            bars.add(createToolBar("edit", mainScope, treeFocused,
+                    List.of(ActionIds.UNDO, ActionIds.REDO)));
         }
         toolBarContainer = new ToolBarContainer(bars.toArray(ToolBar[]::new));
         return toolBarContainer;
     }
 
-    /**
-     * The command ids of the tool bar {@code id} (for example {@code "File"}), read from the layer,
-     * or the {@code fallback} ids while the layer registration is unavailable.
-     */
-    private static List<String> toolbarCommandIds(String id, String... fallback) {
-        List<FxActionRef> refs = ActionLayerReader.read("NbFx/Toolbars/" + id);
-        if (refs.isEmpty()) {
-            return List.of(fallback);
+    /** The tool bars declared under {@code NbFx/Toolbars}, ordered by their {@code position}. */
+    private static List<ToolBarSpec> toolbarSpecs() {
+        FileObject root = FileUtil.getConfigFile("NbFx/Toolbars");
+        if (root == null) {
+            return List.of();
         }
-        return refs.stream().map(FxActionRef::actionId).toList();
+        List<ToolBarSpec> specs = new ArrayList<>();
+        for (FileObject folder : root.getChildren()) {
+            if (!folder.isFolder()) {
+                continue;
+            }
+            List<String> ids = ActionLayerReader.read(folder).stream().map(FxActionRef::actionId).toList();
+            if (ids.isEmpty()) {
+                continue;
+            }
+            int position = folder.getAttribute("position") instanceof Integer p ? p : Integer.MAX_VALUE;
+            specs.add(new ToolBarSpec(folder.getName(), position, ids));
+        }
+        specs.sort(Comparator.comparingInt(ToolBarSpec::position).thenComparing(ToolBarSpec::id));
+        return specs;
+    }
+
+    /** A tool bar declared in the layer: its id, its order and the command ids of its buttons. */
+    private record ToolBarSpec(String id, int position, List<String> commandIds) {
     }
 
     private ToolBar createToolBar(String id, ObservableValue<EditorDocument> scope,

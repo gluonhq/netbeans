@@ -25,19 +25,21 @@ import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.RUN;
 import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.TEST;
 
 import com.gluonhq.netbeans.nbfx.annotations.FxActionReference;
+import com.gluonhq.netbeans.nbfx.annotations.FxToolbarRegistration;
 
 /**
  * Declares the Build tool bar contents in the layer, so the bar is assembled from registrations.
- * The processor writes {@code NbFx/Toolbars/Build/*.ref}, which the window reads; the bar appears
+ * The processor writes {@code NbFx/Toolbars/build/*.ref}, which the window reads; the bar appears
  * only while a module registers entries in it.
  * <p>
  * This class carries metadata only; it is never instantiated.
  */
-@FxActionReference(id = BUILD, path = "Toolbars/Build", position = 10)
-@FxActionReference(id = CLEAN_BUILD, path = "Toolbars/Build", position = 20)
-@FxActionReference(id = CLEAN, path = "Toolbars/Build", position = 30)
-@FxActionReference(id = TEST, path = "Toolbars/Build", position = 40)
-@FxActionReference(id = RUN, path = "Toolbars/Build", position = 50)
+@FxToolbarRegistration(id = "build", position = 40)
+@FxActionReference(id = BUILD, path = "Toolbars/build", position = 10)
+@FxActionReference(id = CLEAN_BUILD, path = "Toolbars/build", position = 20)
+@FxActionReference(id = CLEAN, path = "Toolbars/build", position = 30)
+@FxActionReference(id = TEST, path = "Toolbars/build", position = 40)
+@FxActionReference(id = RUN, path = "Toolbars/build", position = 50)
 final class BuildToolbarRegistrations {
 
     private BuildToolbarRegistrations() {

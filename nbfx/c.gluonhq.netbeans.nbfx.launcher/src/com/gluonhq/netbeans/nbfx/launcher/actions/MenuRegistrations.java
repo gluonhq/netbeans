@@ -95,16 +95,6 @@ import com.gluonhq.netbeans.nbfx.annotations.FxActionReference;
 @FxActionReference(id = FIND_IN_PROJECTS, path = "Menus/Edit", position = 110)
 @FxActionReference(id = REPLACE_IN_PROJECTS, path = "Menus/Edit", position = 120)
 @FxActionReference(id = FIND_USAGES, path = "Menus/Edit", position = 130, separatorBefore = true)
-@FxActionReference(id = NEW_PROJECT, path = "Toolbars/File", position = 10)
-@FxActionReference(id = OPEN_PROJECT, path = "Toolbars/File", position = 20)
-@FxActionReference(id = SAVE, path = "Toolbars/File", position = 30)
-@FxActionReference(id = SAVE_ALL, path = "Toolbars/File", position = 40)
-@FxActionReference(id = CUT, path = "Toolbars/Clipboard", position = 10)
-@FxActionReference(id = COPY, path = "Toolbars/Clipboard", position = 20)
-@FxActionReference(id = PASTE, path = "Toolbars/Clipboard", position = 30)
-@FxActionReference(id = FIND, path = "Toolbars/Clipboard", position = 40)
-@FxActionReference(id = UNDO, path = "Toolbars/Edit", position = 10)
-@FxActionReference(id = REDO, path = "Toolbars/Edit", position = 20)
 final class MenuRegistrations {
 
     /** Placeholder id for the Recent Projects submenu, which the window builds dynamically. */
