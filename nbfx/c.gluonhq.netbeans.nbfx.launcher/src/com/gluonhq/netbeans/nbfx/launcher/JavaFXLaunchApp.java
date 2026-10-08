@@ -28,6 +28,8 @@ import com.gluonhq.netbeans.nbfx.statusbar.FxStatusBar;
 import com.gluonhq.netbeans.nbfx.statusbar.StatusElement;
 import com.gluonhq.netbeans.nbfx.statusbar.StatusElementRegistry;
 import com.gluonhq.netbeans.nbfx.windows.WindowEnvironment;
+import com.gluonhq.netbeans.nbfx.windows.ViewRegistration;
+import com.gluonhq.netbeans.nbfx.windows.ViewRegistry;
 
 import com.gluonhq.netbeans.nbfx.api.ContentManager;
 import com.gluonhq.netbeans.nbfx.api.editor.EditorContext;
@@ -441,6 +443,11 @@ public class JavaFXLaunchApp extends Application {
         for (ViewProvider view : Lookup.getDefault().lookupAll(ViewProvider.class)) {
             if (view.getId().equals(viewId)) {
                 return view;
+            }
+        }
+        for (ViewRegistration registration : ViewRegistry.discover()) {
+            if (registration.id().equals(viewId)) {
+                return registration.view();
             }
         }
         return null;
