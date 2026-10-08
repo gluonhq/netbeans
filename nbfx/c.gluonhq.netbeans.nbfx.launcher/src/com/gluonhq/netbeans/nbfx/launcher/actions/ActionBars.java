@@ -19,6 +19,7 @@ import com.gluonhq.netbeans.nbfx.api.project.ProjectRegistry;
 import com.gluonhq.netbeans.nbfx.api.actions.RunnableCommand;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -286,13 +287,41 @@ public final class ActionBars {
         Menu fileMenu = createFileMenu(mainScope);
         Menu editMenu = createEditMenu(mainScope, treeFocused);
         Menu viewMenu = createViewMenu();
+        Menu buildMenu = createBuildMenu(mainScope);
         Menu windowMenu = createWindowMenu(mainScope);
 
         Menu helpMenu = new Menu(message("Menu.help"));
-        MenuBar menuBar = new MenuBar(fileMenu, editMenu, viewMenu, windowMenu, helpMenu);
+        List<Menu> menus = new ArrayList<>(List.of(fileMenu, editMenu, viewMenu));
+        if (buildMenu != null) {
+            menus.add(buildMenu);
+        }
+        menus.add(windowMenu);
+        menus.add(helpMenu);
+        MenuBar menuBar = new MenuBar(menus.toArray(Menu[]::new));
         // TODO: Fix https://bugs.openjdk.org/browse/JDK-8388508
         menuBar.setUseSystemMenuBar(true);
         return menuBar;
+    }
+
+    /**
+     * Builds the Build menu from the {@code NbFx/Menus/Build} layer entries, or {@code null} when no
+     * build commands are registered (the module that provides them may not be present).
+     */
+    private Menu createBuildMenu(ObservableValue<EditorDocument> mainScope) {
+        List<FxActionRef> refs = ActionLayerReader.read("NbFx/Menus/Build");
+        if (refs.isEmpty()) {
+            return null;
+        }
+        Menu buildMenu = new Menu(message("Menu.build"));
+        for (FxActionRef ref : refs) {
+            MenuItem item = createOptionalMenuItem(ref.actionId(), mainScope, null);
+            if (item == null) {
+                continue;
+            }
+            addSeparatorIfNeeded(buildMenu, ref);
+            buildMenu.getItems().add(item);
+        }
+        return buildMenu.getItems().isEmpty() ? null : buildMenu;
     }
 
     /**

@@ -112,6 +112,18 @@ public final class ActionIds {
     /** Find... on a folder of the Projects view: opens the search dialog scoped to the selected folders. */
     public static final String FILE_FIND = "file.find";
 
+    /** Builds the selected project with its build tool. */
+    public static final String BUILD = "build";
+
+    /** Cleans the selected project's build output. */
+    public static final String CLEAN = "clean";
+
+    /** Runs the selected project's tests. */
+    public static final String TEST = "test";
+
+    /** Runs the selected project. */
+    public static final String RUN = "run";
+
     private ActionIds() {
     }
 }
