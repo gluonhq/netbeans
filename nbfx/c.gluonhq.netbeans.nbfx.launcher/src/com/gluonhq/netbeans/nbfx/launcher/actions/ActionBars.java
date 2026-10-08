@@ -11,7 +11,6 @@ import com.gluonhq.netbeans.nbfx.api.actions.ActionIds;
 import com.gluonhq.netbeans.nbfx.api.actions.ActionLayerReader;
 import com.gluonhq.netbeans.nbfx.api.actions.ActionRegistry;
 import com.gluonhq.netbeans.nbfx.api.actions.Command;
-import com.gluonhq.netbeans.nbfx.api.actions.EditorContextMenuIds;
 import com.gluonhq.netbeans.nbfx.api.actions.FxActionRef;
 import com.gluonhq.netbeans.nbfx.api.editor.EditorDocument;
 import com.gluonhq.netbeans.nbfx.api.editor.EditorSettings;
@@ -216,9 +215,10 @@ public final class ActionBars {
     }
 
     /**
-     * Registers the launcher-owned entries of the editor's context menu and appends them to
-     * {@link EditorContextMenuIds}: Select in Projects, which reveals the file of the globally
-     * active editor (the right-clicked one, as opening the menu focuses it) in the Projects view.
+     * Registers the launcher-owned entry of the editor's context menu: Select in Projects, which
+     * reveals the file of the globally active editor (the right-clicked one, as opening the menu
+     * focuses it) in the Projects view. The menu entry itself is declared in the layer by
+     * {@link MenuRegistrations}.
      */
     public void registerEditorContextCommands(Consumer<FileObject> selectInProjects) {
         if (registry == null) {
@@ -236,7 +236,6 @@ public final class ActionBars {
                         selectInProjects.accept(document.getFileObject());
                     }
                 }, disabled));
-        EditorContextMenuIds.add(EditorContextMenuIds.SEPARATOR, ActionIds.SELECT_IN_PROJECTS);
     }
 
     /**
@@ -389,27 +388,55 @@ public final class ActionBars {
      */
     private Menu createWindowMenu(ObservableValue<EditorDocument> mainScope) {
         Menu windowMenu = new Menu(message("Menu.window"));
-        addMenuItems(windowMenu,
-                createMenuItem(ActionIds.SELECT_PROJECTS, mainScope, null),
-                createMenuItem(ActionIds.SELECT_FILES, mainScope, null),
-                createMenuItem(ActionIds.SELECT_EDITOR, mainScope, null),
-                createOptionalMenuItem(ActionIds.SELECT_USAGES, mainScope),
-                createOptionalMenuItem(ActionIds.SELECT_SEARCH_RESULTS, mainScope),
-                new SeparatorMenuItem(),
-                TabContextMenu.createConfigureWindowMenu(),
-                createMenuItem(ActionIds.RESET_WINDOWS, mainScope, null),
-                new SeparatorMenuItem(),
-                createMenuItem(ActionIds.CLOSE_DOCUMENT, mainScope, null),
-                createMenuItem(ActionIds.CLOSE_ALL_DOCUMENTS, mainScope, null),
-                createMenuItem(ActionIds.CLOSE_OTHER_DOCUMENTS, mainScope, null));
-        if (projectSwitcher != null) {
+        List<FxActionRef> refs = ActionLayerReader.read("NbFx/Menus/Window");
+        if (!refs.isEmpty()) {
+            for (FxActionRef ref : refs) {
+                if (MenuRegistrations.CONFIGURE_WINDOW.equals(ref.actionId())) {
+                    addSeparatorIfNeeded(windowMenu, ref);
+                    windowMenu.getItems().add(TabContextMenu.createConfigureWindowMenu());
+                    continue;
+                }
+                MenuItem item = createOptionalMenuItem(ref.actionId(), mainScope, null);
+                if (item == null) {
+                    continue;
+                }
+                addSeparatorIfNeeded(windowMenu, ref);
+                windowMenu.getItems().add(item);
+            }
+        } else {
             addMenuItems(windowMenu,
+                    createMenuItem(ActionIds.SELECT_PROJECTS, mainScope, null),
+                    createMenuItem(ActionIds.SELECT_FILES, mainScope, null),
+                    createMenuItem(ActionIds.SELECT_EDITOR, mainScope, null),
+                    createOptionalMenuItem(ActionIds.SELECT_USAGES, mainScope),
+                    createOptionalMenuItem(ActionIds.SELECT_SEARCH_RESULTS, mainScope),
                     new SeparatorMenuItem(),
-                    createMenuItem(ActionIds.NEXT_PROJECT, mainScope, null),
-                    createMenuItem(ActionIds.PREVIOUS_PROJECT, mainScope, null));
+                    TabContextMenu.createConfigureWindowMenu(),
+                    createMenuItem(ActionIds.RESET_WINDOWS, mainScope, null),
+                    new SeparatorMenuItem(),
+                    createMenuItem(ActionIds.CLOSE_DOCUMENT, mainScope, null),
+                    createMenuItem(ActionIds.CLOSE_ALL_DOCUMENTS, mainScope, null),
+                    createMenuItem(ActionIds.CLOSE_OTHER_DOCUMENTS, mainScope, null));
+            if (projectSwitcher != null) {
+                addMenuItems(windowMenu,
+                        new SeparatorMenuItem(),
+                        createMenuItem(ActionIds.NEXT_PROJECT, mainScope, null),
+                        createMenuItem(ActionIds.PREVIOUS_PROJECT, mainScope, null));
+            }
+        }
+        if (projectSwitcher != null) {
             installOpenProjects(windowMenu);
         }
         return windowMenu;
+    }
+
+    /** Adds a separator before the next item when the reference asks for one and it is not already there. */
+    private static void addSeparatorIfNeeded(Menu menu, FxActionRef ref) {
+        ObservableList<MenuItem> items = menu.getItems();
+        if (ref.separatorBefore() && !items.isEmpty()
+                && !(items.get(items.size() - 1) instanceof SeparatorMenuItem)) {
+            items.add(new SeparatorMenuItem());
+        }
     }
 
     /**

@@ -19,6 +19,9 @@
 package com.gluonhq.netbeans.nbfx.launcher.actions;
 
 import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.CLOSE_ALL_PROJECTS;
+import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.CLOSE_ALL_DOCUMENTS;
+import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.CLOSE_DOCUMENT;
+import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.CLOSE_OTHER_DOCUMENTS;
 import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.CLOSE_PROJECT;
 import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.COPY;
 import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.CUT;
@@ -29,13 +32,22 @@ import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.FIND_PREVIOUS;
 import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.FIND_SELECTION;
 import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.FIND_USAGES;
 import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.NEW_PROJECT;
+import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.NEXT_PROJECT;
 import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.OPEN_PROJECT;
 import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.PASTE;
+import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.PREVIOUS_PROJECT;
 import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.REDO;
 import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.REPLACE;
 import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.REPLACE_IN_PROJECTS;
+import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.RESET_WINDOWS;
 import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.SAVE;
 import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.SAVE_ALL;
+import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.SELECT_EDITOR;
+import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.SELECT_FILES;
+import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.SELECT_IN_PROJECTS;
+import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.SELECT_PROJECTS;
+import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.SELECT_SEARCH_RESULTS;
+import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.SELECT_USAGES;
 import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.UNDO;
 
 import com.gluonhq.netbeans.nbfx.annotations.FxActionReference;
@@ -55,6 +67,19 @@ import com.gluonhq.netbeans.nbfx.annotations.FxActionReference;
 @FxActionReference(id = CLOSE_ALL_PROJECTS, path = "Menus/File", position = 50)
 @FxActionReference(id = SAVE, path = "Menus/File", position = 60, separatorBefore = true)
 @FxActionReference(id = SAVE_ALL, path = "Menus/File", position = 70)
+@FxActionReference(id = SELECT_PROJECTS, path = "Menus/Window", position = 10)
+@FxActionReference(id = SELECT_FILES, path = "Menus/Window", position = 20)
+@FxActionReference(id = SELECT_EDITOR, path = "Menus/Window", position = 30)
+@FxActionReference(id = SELECT_USAGES, path = "Menus/Window", position = 40)
+@FxActionReference(id = SELECT_SEARCH_RESULTS, path = "Menus/Window", position = 50)
+@FxActionReference(id = MenuRegistrations.CONFIGURE_WINDOW, path = "Menus/Window", position = 60, separatorBefore = true)
+@FxActionReference(id = RESET_WINDOWS, path = "Menus/Window", position = 70)
+@FxActionReference(id = CLOSE_DOCUMENT, path = "Menus/Window", position = 80, separatorBefore = true)
+@FxActionReference(id = CLOSE_ALL_DOCUMENTS, path = "Menus/Window", position = 90)
+@FxActionReference(id = CLOSE_OTHER_DOCUMENTS, path = "Menus/Window", position = 100)
+@FxActionReference(id = NEXT_PROJECT, path = "Menus/Window", position = 110, separatorBefore = true)
+@FxActionReference(id = PREVIOUS_PROJECT, path = "Menus/Window", position = 120)
+@FxActionReference(id = SELECT_IN_PROJECTS, path = "ContextMenus/Editor", position = 120, separatorBefore = true)
 @FxActionReference(id = UNDO, path = "Menus/Edit", position = 10)
 @FxActionReference(id = REDO, path = "Menus/Edit", position = 20)
 @FxActionReference(id = CUT, path = "Menus/Edit", position = 30, separatorBefore = true)
@@ -82,6 +107,9 @@ final class MenuRegistrations {
 
     /** Placeholder id for the Recent Projects submenu, which the window builds dynamically. */
     static final String OPEN_RECENT = "openRecent";
+
+    /** Placeholder id for the Configure Window submenu, which the window builds dynamically. */
+    static final String CONFIGURE_WINDOW = "configureWindow";
 
     private MenuRegistrations() {
     }
