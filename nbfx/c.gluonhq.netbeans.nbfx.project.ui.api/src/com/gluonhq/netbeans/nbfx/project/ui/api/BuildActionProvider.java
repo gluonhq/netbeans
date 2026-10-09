@@ -34,7 +34,16 @@ public interface BuildActionProvider {
 
     /**
      * The command line to run {@code command} in {@code dir}, or {@code null} when this provider does
-     * not support it.
+     * not support it. Used as the fallback when {@link #start} returns {@code null}.
      */
     List<String> commandLine(Path dir, String command);
+
+    /**
+     * Starts {@code command} in-process, streaming output to {@code output} and reporting progress to
+     * {@code progress}. Returns a handle to cancel the running build, or {@code null} to fall back to
+     * {@link #commandLine(Path, String)} (the CLI runner).
+     */
+    default BuildExecution start(Path dir, String command, BuildOutput output, BuildProgress progress) {
+        return null;
+    }
 }

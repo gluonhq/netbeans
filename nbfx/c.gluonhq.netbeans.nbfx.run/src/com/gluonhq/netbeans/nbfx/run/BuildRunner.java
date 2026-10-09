@@ -22,6 +22,9 @@ import com.gluonhq.netbeans.nbfx.api.progress.FxProgress;
 import com.gluonhq.netbeans.nbfx.output.FxConsole;
 import com.gluonhq.netbeans.nbfx.output.FxOutput;
 import com.gluonhq.netbeans.nbfx.project.ui.api.BuildActionProvider;
+import com.gluonhq.netbeans.nbfx.project.ui.api.BuildExecution;
+import com.gluonhq.netbeans.nbfx.project.ui.api.BuildOutput;
+import com.gluonhq.netbeans.nbfx.project.ui.api.BuildProgress;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
@@ -30,13 +33,10 @@ import org.openide.util.Lookup;
 import org.openide.util.NbBundle;
 
 /**
- * Runs a build action for a project directory: detects the build tool, opens (and clears) the
- * console named {@code consoleName}, and streams the tool's output into it. Shared by the Build
- * menu command and the navigator context menu.
- * <p>
- * The output service is resolved at call time and writing to a console makes the Output view show
- * itself, so a build always brings its output on screen. While the tool runs, the status bar shows
- * a cancellable progress, the way NetBeans does.
+ * Runs a build action for a project directory. It first asks the project-type
+ * {@link BuildActionProvider} to run the command in-process (streaming to the Fx console); when the
+ * provider does not support in-process execution, it falls back to the CLI runner. Shared by the
+ * Build menu command and the navigator context menu.
  *
  * @since 1.0
  */
@@ -60,13 +60,31 @@ final class BuildRunner {
         console.clear();
         console.show();
 
-        List<String> commandLine = command(dir, command);
+        FxProgress progress = Lookup.getDefault().lookup(FxProgress.class);
+        BuildActionProvider provider = BuildActions.providerFor(dir);
+        if (provider != null) {
+            BuildExecution execution = provider.start(dir, command,
+                    output(console), progress(progress, consoleName));
+            if (execution != null) {
+                return;
+            }
+        }
+        runCli(dir, command, consoleName, console, progress);
+    }
+
+    /** The CLI fallback: detect the tool from marker files and run it as a process. */
+    private static void runCli(Path dir, String command, String consoleName, FxConsole console, FxProgress progress) {
+        List<String> commandLine = BuildTool.detect(dir).commandLine(dir, command);
+        if (commandLine == null) {
+            BuildActionProvider provider = BuildActions.providerFor(dir);
+            if (provider != null) {
+                commandLine = provider.commandLine(dir, command);
+            }
+        }
         if (commandLine == null) {
             console.append(NbBundle.getMessage(BuildRunner.class, "BuildCommand.noTool") + "\n");
             return;
         }
-
-        FxProgress progress = Lookup.getDefault().lookup(FxProgress.class);
         AtomicReference<Process> process = new AtomicReference<>();
         if (progress != null) {
             progress.start(consoleName, () -> {
@@ -76,26 +94,48 @@ final class BuildRunner {
                 }
             });
         }
-        ProcessRunner.run(commandLine, dir, console, process::set, () -> {
+        List<String> line = commandLine;
+        ProcessRunner.run(line, dir, console, process::set, () -> {
             if (progress != null) {
                 progress.finish();
             }
         });
     }
 
-    /**
-     * The command line for {@code action}: the project-type {@link BuildActionProvider} for the
-     * project at {@code dir} when there is one, otherwise the marker-file detected {@link BuildTool}.
-     * This mirrors the original {@code ProjectAction} dispatching to the project's {@code ActionProvider}.
-     */
-    private static List<String> command(Path dir, String command) {
-        BuildActionProvider provider = BuildActions.providerFor(dir);
-        if (provider != null) {
-            List<String> commandLine = provider.commandLine(dir, command);
-            if (commandLine != null) {
-                return commandLine;
+    private static BuildOutput output(FxConsole console) {
+        return new BuildOutput() {
+            @Override
+            public void clear() {
+                console.clear();
             }
-        }
-        return BuildTool.detect(dir).commandLine(dir, command);
+
+            @Override
+            public void show() {
+                console.show();
+            }
+
+            @Override
+            public void append(String text) {
+                console.append(text);
+            }
+        };
+    }
+
+    private static BuildProgress progress(FxProgress progress, String name) {
+        return new BuildProgress() {
+            @Override
+            public void start(String displayName, Runnable cancel) {
+                if (progress != null) {
+                    progress.start(displayName, cancel);
+                }
+            }
+
+            @Override
+            public void finish() {
+                if (progress != null) {
+                    progress.finish();
+                }
+            }
+        };
     }
 }
