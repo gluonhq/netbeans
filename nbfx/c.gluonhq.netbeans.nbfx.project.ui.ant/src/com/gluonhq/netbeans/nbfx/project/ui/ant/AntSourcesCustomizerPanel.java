@@ -1,6 +1,6 @@
 package com.gluonhq.netbeans.nbfx.project.ui.ant;
-
 import com.gluonhq.netbeans.nbfx.project.customizer.FxProjectCustomizerPanel;
+
 import javafx.scene.Node;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
@@ -17,7 +17,7 @@ import org.openide.util.lookup.ServiceProvider;
  * {@code nbproject/project.properties}.
  */
 @ServiceProvider(service = FxProjectCustomizerPanel.class)
-public final class AntSourcesCustomizerPanel implements FxProjectCustomizerPanel {
+public final class AntSourcesCustomizerPanel extends AntModuleCustomizerPanel {
 
     private TextField srcDir;
     private TextField testSrcDir;

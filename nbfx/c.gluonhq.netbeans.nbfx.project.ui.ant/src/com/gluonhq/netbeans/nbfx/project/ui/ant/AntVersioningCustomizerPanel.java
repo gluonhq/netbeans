@@ -1,6 +1,6 @@
 package com.gluonhq.netbeans.nbfx.project.ui.ant;
-
 import com.gluonhq.netbeans.nbfx.project.customizer.FxProjectCustomizerPanel;
+
 import java.util.ArrayList;
 import java.util.List;
 import javafx.scene.Node;
@@ -16,7 +16,7 @@ import org.openide.util.lookup.ServiceProvider;
  * {@code nbproject/project.xml}.
  */
 @ServiceProvider(service = FxProjectCustomizerPanel.class)
-public final class AntVersioningCustomizerPanel implements FxProjectCustomizerPanel {
+public final class AntVersioningCustomizerPanel extends AntModuleCustomizerPanel {
 
     private TextArea publicPackages;
     private String initial;

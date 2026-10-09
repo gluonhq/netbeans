@@ -21,8 +21,7 @@ public final class FxProjectCustomizers {
         String kind = ProjectKinds.providerOf(project).id();
         List<FxProjectCustomizerPanel> panels = new ArrayList<>();
         for (FxProjectCustomizerPanel panel : Lookup.getDefault().lookupAll(FxProjectCustomizerPanel.class)) {
-            String type = panel.projectTypeId();
-            if (type == null || type.equals(kind)) {
+            if (panel.appliesTo(project, kind)) {
                 panels.add(panel);
             }
         }

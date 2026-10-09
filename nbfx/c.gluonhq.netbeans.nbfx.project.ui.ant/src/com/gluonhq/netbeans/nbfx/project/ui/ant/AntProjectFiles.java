@@ -142,6 +142,16 @@ final class AntProjectFiles {
         return builder.toString();
     }
 
+    /** The project type declared in {@code nbproject/project.xml}, or {@code null}. */
+    static String projectType(FileObject dir) {
+        FileObject file = dir.getFileObject("nbproject/project.xml");
+        if (file == null || !file.isData()) {
+            return null;
+        }
+        Matcher matcher = Pattern.compile("<type>([^<]*)</type>").matcher(text(file));
+        return matcher.find() ? matcher.group(1).trim() : null;
+    }
+
     private static boolean setEntry(List<String> lines, String key, String value, char separator) {
         for (int i = 0; i < lines.size(); i++) {
             String line = lines.get(i);

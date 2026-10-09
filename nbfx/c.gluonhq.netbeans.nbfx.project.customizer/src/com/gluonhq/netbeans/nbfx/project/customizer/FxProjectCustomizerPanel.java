@@ -20,6 +20,16 @@ public interface FxProjectCustomizerPanel {
         return null;
     }
 
+    /**
+     * Whether this panel applies to {@code project}, whose kind id is {@code kindId}. Defaults to
+     * matching {@link #projectTypeId()} against {@code kindId}; a panel refines this to distinguish
+     * two project types that share a kind (e.g. apisupport vs J2SE, both Ant-based).
+     */
+    default boolean appliesTo(Project project, String kindId) {
+        String type = projectTypeId();
+        return type == null || type.equals(kindId);
+    }
+
     /** A stable id for the category (e.g. {@code "sources"}). */
     String id();
 

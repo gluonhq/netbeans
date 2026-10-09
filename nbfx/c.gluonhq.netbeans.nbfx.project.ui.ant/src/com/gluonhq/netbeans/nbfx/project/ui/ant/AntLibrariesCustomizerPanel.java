@@ -1,6 +1,6 @@
 package com.gluonhq.netbeans.nbfx.project.ui.ant;
-
 import com.gluonhq.netbeans.nbfx.project.customizer.FxProjectCustomizerPanel;
+
 import com.gluonhq.netbeans.nbfx.project.ui.api.ProjectLibrary;
 import java.util.List;
 import javafx.scene.Node;
@@ -15,7 +15,7 @@ import org.openide.util.lookup.ServiceProvider;
  * dependencies. Read-only for now.
  */
 @ServiceProvider(service = FxProjectCustomizerPanel.class)
-public final class AntLibrariesCustomizerPanel implements FxProjectCustomizerPanel {
+public final class AntLibrariesCustomizerPanel extends AntModuleCustomizerPanel {
 
     private final AntProjectKindProvider kind = new AntProjectKindProvider();
 
