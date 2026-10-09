@@ -44,7 +44,7 @@ public final class DebugCommandsProvider implements CommandsProvider {
                 new SessionCommand(ActionIds.DEBUG_STEP_INTO, message("Debug.stepInto"), DebugSession::stepInto),
                 new SessionCommand(ActionIds.DEBUG_STEP_OUT, message("Debug.stepOut"), DebugSession::stepOut),
                 new SessionCommand(ActionIds.DEBUG_STOP, message("Debug.stop"), DebugSession::stop),
-                new ToggleBreakpointCommand());
+                ToggleBreakpointCommand.create());
     }
 
     private static String message(String key) {

@@ -18,31 +18,38 @@
  */
 package com.gluonhq.netbeans.nbfx.debug;
 
-import com.gluonhq.netbeans.nbfx.api.actions.AbstractCommand;
 import com.gluonhq.netbeans.nbfx.api.actions.ActionIds;
+import com.gluonhq.netbeans.nbfx.api.actions.Command;
+import com.gluonhq.netbeans.nbfx.api.actions.ContextAction;
+import com.gluonhq.netbeans.nbfx.api.actions.FxActionContext;
 import com.gluonhq.netbeans.nbfx.api.editor.CaretInfo;
-import com.gluonhq.netbeans.nbfx.api.editor.EditorContext;
 import com.gluonhq.netbeans.nbfx.api.editor.EditorDocument;
 import java.io.IOException;
 import org.netbeans.api.debugger.Breakpoint;
 import org.netbeans.api.debugger.DebuggerManager;
 import org.netbeans.api.debugger.jpda.LineBreakpoint;
 import org.openide.filesystems.FileObject;
-import org.openide.util.Lookup;
 import org.openide.util.NbBundle;
 
-/** Debug ▸ Toggle Breakpoint: adds or removes a line breakpoint on the caret line. */
-final class ToggleBreakpointCommand extends AbstractCommand {
+/**
+ * Debug ▸ Toggle Breakpoint: adds or removes a line breakpoint on the caret line of the active
+ * editor, enabled while an editor document is in the global action context.
+ */
+final class ToggleBreakpointCommand {
 
-    ToggleBreakpointCommand() {
-        super(ActionIds.TOGGLE_BREAKPOINT,
-                NbBundle.getMessage(ToggleBreakpointCommand.class, "CTL_ToggleBreakpointCommand"), null, false);
+    private ToggleBreakpointCommand() {
     }
 
-    @Override
-    public void run() {
-        EditorContext context = Lookup.getDefault().lookup(EditorContext.class);
-        EditorDocument document = context == null ? null : context.getActiveDocument();
+    /** The command, enabled while an editor document is in the global action context. */
+    static Command create() {
+        return new ContextAction(ActionIds.TOGGLE_BREAKPOINT,
+                NbBundle.getMessage(ToggleBreakpointCommand.class, "CTL_ToggleBreakpointCommand"),
+                null, context -> context.lookup(EditorDocument.class) != null,
+                ToggleBreakpointCommand::toggle, EditorDocument.class);
+    }
+
+    private static void toggle(FxActionContext context) {
+        EditorDocument document = context.lookup(EditorDocument.class);
         if (document == null) {
             return;
         }
