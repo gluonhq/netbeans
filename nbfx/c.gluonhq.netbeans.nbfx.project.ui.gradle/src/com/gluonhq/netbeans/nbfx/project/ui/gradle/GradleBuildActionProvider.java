@@ -9,10 +9,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import org.netbeans.spi.project.ProjectServiceProvider;
 import org.openide.util.lookup.ServiceProvider;
 
 /** Gradle build commands, run in-process with the Gradle Tooling API (CLI fallback via gradlew). */
 @ServiceProvider(service = BuildActionProvider.class)
+@ProjectServiceProvider(service = BuildActionProvider.class, projectType = "org-netbeans-modules-gradle")
 public final class GradleBuildActionProvider implements BuildActionProvider {
 
     @Override

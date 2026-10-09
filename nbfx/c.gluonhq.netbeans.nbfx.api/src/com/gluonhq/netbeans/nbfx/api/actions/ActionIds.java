@@ -125,6 +125,9 @@ public final class ActionIds {
     /** Shows and selects the Git view (Window menu). */
     public static final String SELECT_GIT = "selectGit";
 
+    /** Shows the Properties window (Window &gt; IDE Tools). */
+    public static final String SELECT_PROPERTIES = "selectProperties";
+
     /** Debugs the active file. */
     public static final String DEBUG_FILE = "debugFile";
 

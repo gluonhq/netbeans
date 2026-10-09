@@ -19,9 +19,12 @@
 package com.gluonhq.netbeans.nbfx.run;
 
 import com.gluonhq.netbeans.nbfx.project.ui.api.BuildActionProvider;
+import com.gluonhq.netbeans.nbfx.project.ui.api.BuildCommands;
+import java.io.File;
 import java.util.HashSet;
 import java.util.Set;
 import junit.framework.Test;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import org.netbeans.junit.NbModuleSuite;
 import org.netbeans.junit.NbTestCase;
@@ -29,7 +32,8 @@ import org.openide.util.Lookup;
 
 /**
  * Verifies that the project-type {@link BuildActionProvider}s are discoverable through the module
- * system's default Lookup - the reason a build action can run in-process instead of via the CLI.
+ * system's default Lookup - the reason a build action can run in-process instead of via the CLI - and
+ * that enablement follows the provider (supported + enabled) through the marker-file fallback.
  */
 public class BuildActionsTest extends NbTestCase {
 
@@ -53,5 +57,16 @@ public class BuildActionsTest extends NbTestCase {
         assertTrue("no provider for ant; found " + ids, ids.contains("ant"));
         assertTrue("no provider for gradle; found " + ids, ids.contains("gradle"));
         assertTrue("no provider for maven; found " + ids, ids.contains("maven"));
+    }
+
+    public void testMarkerFileFallbackEnablement() throws Exception {
+        File dir = new File(getWorkDir(), "mavenproj");
+        assertTrue(dir.exists() || dir.mkdirs());
+        assertTrue(new File(dir, "pom.xml").createNewFile() || new File(dir, "pom.xml").exists());
+
+        assertTrue("build should be enabled for a Maven directory",
+                BuildActions.isEnabled(dir.toPath(), BuildCommands.BUILD));
+        assertFalse("debug is not supported by Maven",
+                BuildActions.isEnabled(dir.toPath(), BuildCommands.DEBUG));
     }
 }

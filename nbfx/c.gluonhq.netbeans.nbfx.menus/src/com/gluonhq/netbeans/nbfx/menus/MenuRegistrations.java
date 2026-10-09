@@ -69,6 +69,7 @@ import com.gluonhq.netbeans.nbfx.annotations.FxMenuRegistration;
 @FxMenuRegistration(id = "View", position = 30)
 @FxMenuRegistration(id = "Tools", position = 60)
 @FxMenuRegistration(id = "Window", position = 70)
+@FxMenuRegistration(id = "Window/IDE Tools", displayName = "IDE Tools", position = 100)
 @FxMenuRegistration(id = "Help", position = 90)
 @FxActionReference(id = NEW_PROJECT, path = "Menus/File", position = 10)
 @FxActionReference(id = NEW_FILE, path = "Menus/File", position = 15)

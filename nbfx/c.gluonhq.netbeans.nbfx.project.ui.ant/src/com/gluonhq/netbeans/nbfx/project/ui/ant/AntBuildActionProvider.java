@@ -5,6 +5,7 @@ import com.gluonhq.netbeans.nbfx.project.ui.api.BuildCommands;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import org.netbeans.spi.project.ProjectServiceProvider;
 import org.openide.util.lookup.ServiceProvider;
 
 /**
@@ -13,6 +14,11 @@ import org.openide.util.lookup.ServiceProvider;
  * conventional {@code jar}/{@code test}/{@code javadoc} targets.
  */
 @ServiceProvider(service = BuildActionProvider.class)
+@ProjectServiceProvider(service = BuildActionProvider.class, projectType = {
+    "org-netbeans-modules-apisupport-project",
+    "org-netbeans-modules-apisupport-project-suite",
+    "org-netbeans-modules-java-j2seproject"
+})
 public final class AntBuildActionProvider implements BuildActionProvider {
 
     @Override

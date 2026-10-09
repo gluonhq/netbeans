@@ -9,10 +9,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import org.netbeans.spi.project.ProjectServiceProvider;
 import org.openide.util.lookup.ServiceProvider;
 
 /** Maven build commands, run in-process via {@link MavenBuild} (CLI fallback via mvn/mvnw). */
 @ServiceProvider(service = BuildActionProvider.class)
+@ProjectServiceProvider(service = BuildActionProvider.class, projectType = "org-netbeans-modules-maven")
 public final class MavenBuildActionProvider implements BuildActionProvider {
 
     @Override

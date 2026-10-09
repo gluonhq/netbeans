@@ -19,8 +19,10 @@
 package com.gluonhq.netbeans.nbfx.vcs;
 
 import com.gluonhq.netbeans.nbfx.api.ErrorReporter;
+import com.gluonhq.netbeans.nbfx.api.actions.FxActionContext;
+import com.gluonhq.netbeans.nbfx.api.editor.EditorDocument;
 import com.gluonhq.netbeans.nbfx.api.project.OpenProject;
-import com.gluonhq.netbeans.nbfx.api.project.ProjectRegistry;
+import com.gluonhq.netbeans.nbfx.project.context.ProjectContext;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
@@ -40,7 +42,8 @@ import javafx.scene.control.ToolBar;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
-import org.openide.util.Lookup;
+import org.openide.filesystems.FileObject;
+import org.openide.util.LookupListener;
 import org.openide.util.NbBundle;
 import org.openide.util.RequestProcessor;
 
@@ -78,6 +81,15 @@ final class GitStatusView extends BorderPane {
         setTop(new ToolBar(branch, refresh, commit));
         setCenter(table);
 
+        // Follow the global action context: reload when the selected file/project or the active
+        // editor document changes, so the view always shows the current selection's repository.
+        FxActionContext context = FxActionContext.getDefault();
+        if (context != null) {
+            LookupListener listener = event -> reload();
+            for (Class<?> type : List.of(FileObject.class, EditorDocument.class, OpenProject.class)) {
+                context.lookupResult(type).addLookupListener(listener);
+            }
+        }
         reload();
     }
 
@@ -155,8 +167,7 @@ final class GitStatusView extends BorderPane {
     }
 
     private static Path selectedProject() {
-        ProjectRegistry registry = Lookup.getDefault().lookup(ProjectRegistry.class);
-        OpenProject project = registry == null ? null : registry.getSelected();
+        OpenProject project = ProjectContext.selectedProject();
         return project == null ? null : Paths.get(project.getPath());
     }
 

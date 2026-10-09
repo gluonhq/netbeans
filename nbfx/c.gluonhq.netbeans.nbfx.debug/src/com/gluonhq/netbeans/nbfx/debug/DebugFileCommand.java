@@ -19,27 +19,34 @@
 package com.gluonhq.netbeans.nbfx.debug;
 
 import com.gluonhq.netbeans.nbfx.api.ErrorReporter;
-import com.gluonhq.netbeans.nbfx.api.actions.AbstractCommand;
 import com.gluonhq.netbeans.nbfx.api.actions.ActionIds;
+import com.gluonhq.netbeans.nbfx.api.actions.ContextSensitiveCommand;
+import com.gluonhq.netbeans.nbfx.api.actions.FxActionContext;
 import com.gluonhq.netbeans.nbfx.api.editor.CaretInfo;
-import com.gluonhq.netbeans.nbfx.api.editor.EditorContext;
 import com.gluonhq.netbeans.nbfx.api.editor.EditorDocument;
 import org.openide.filesystems.FileObject;
-import org.openide.util.Lookup;
 import org.openide.util.NbBundle;
 
 /** Debug ▸ Debug File: starts a debug session for the active editor's main class. */
-final class DebugFileCommand extends AbstractCommand {
+final class DebugFileCommand extends ContextSensitiveCommand {
 
     DebugFileCommand() {
         super(ActionIds.DEBUG_FILE,
-                NbBundle.getMessage(DebugFileCommand.class, "CTL_DebugFileCommand"), null, false);
+                NbBundle.getMessage(DebugFileCommand.class, "CTL_DebugFileCommand"),
+                EditorDocument.class);
+    }
+
+    @Override
+    protected boolean isEnabled(FxActionContext context) {
+        EditorDocument document = context.lookup(EditorDocument.class);
+        FileObject file = document == null ? null : document.getFileObject();
+        return file != null && DebugLauncher.isRunnableJavaFile(file);
     }
 
     @Override
     public void run() {
-        EditorContext context = Lookup.getDefault().lookup(EditorContext.class);
-        EditorDocument document = context == null ? null : context.getActiveDocument();
+        FxActionContext context = context();
+        EditorDocument document = context == null ? null : context.lookup(EditorDocument.class);
         FileObject file = document == null ? null : document.getFileObject();
         if (file == null) {
             ErrorReporter.report(message("Debug.title"), null, message("Debug.noJavaFile"));

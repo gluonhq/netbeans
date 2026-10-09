@@ -21,8 +21,12 @@ import javafx.scene.control.TabPane;
  */
 public final class Docking implements DockHost<TabPane> {
 
-    /** Default share of the window the navigator pane takes, next to the editor pane. */
-    public static final double DEFAULT_NAVIGATOR_SHARE = 0.22;
+    /**
+     * Default share of the window the navigator pane takes, next to the editor pane. Mirrors the
+     * Swing {@code explorer} mode weight (0.3); the {@code navigator}, {@code properties} and
+     * {@code output} modes dock their views at the same default proportions.
+     */
+    public static final double DEFAULT_NAVIGATOR_SHARE = 0.3;
 
     private static DockArea<TabPane> area;
 

@@ -1075,6 +1075,23 @@ public final class NbfxTabPane extends TabPane {
     }
 
     /**
+     * Returns the {@link ViewProvider} whose id is stored on {@code tab}, or {@code null} when
+     * {@code tab} is an editor tab (or its view is no longer registered).
+     */
+    public static ViewProvider viewOf(Tab tab) {
+        String viewId = viewId(tab);
+        if (viewId == null) {
+            return null;
+        }
+        for (ViewProvider view : Lookup.getDefault().lookupAll(ViewProvider.class)) {
+            if (viewId.equals(view.getId())) {
+                return view;
+            }
+        }
+        return null;
+    }
+
+    /**
      * Forgets a pane that is gone from the scene graph (a docked pane removed once emptied), so it is
      * no longer searched, persisted or restored focus to.
      */

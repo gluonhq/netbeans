@@ -41,14 +41,14 @@ import org.openide.util.NbBundle;
  *
  * @since 1.0
  */
-final class BuildRunner {
+public final class BuildRunner {
 
     private static final Logger LOG = Logger.getLogger(BuildRunner.class.getName());
 
     private BuildRunner() {
     }
 
-    static void run(Path dir, String command, String consoleName) {
+    public static void run(Path dir, String command, String consoleName) {
         if (dir == null) {
             return;
         }

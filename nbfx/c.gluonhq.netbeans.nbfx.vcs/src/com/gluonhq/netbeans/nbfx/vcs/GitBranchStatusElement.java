@@ -20,22 +20,31 @@ package com.gluonhq.netbeans.nbfx.vcs;
 
 import com.gluonhq.netbeans.nbfx.annotations.FxStatusAlignment;
 import com.gluonhq.netbeans.nbfx.annotations.FxStatusRegistration;
+import com.gluonhq.netbeans.nbfx.api.actions.FxActionContext;
+import com.gluonhq.netbeans.nbfx.api.editor.EditorDocument;
 import com.gluonhq.netbeans.nbfx.api.project.OpenProject;
-import com.gluonhq.netbeans.nbfx.api.project.ProjectRegistry;
+import com.gluonhq.netbeans.nbfx.project.context.ProjectContext;
 import com.gluonhq.netbeans.nbfx.statusbar.FxStatusElement;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
 import javafx.application.Platform;
-import javafx.beans.value.ChangeListener;
 import javafx.scene.Node;
 import javafx.scene.control.Label;
+import org.openide.filesystems.FileObject;
 import org.openide.util.Lookup;
+import org.openide.util.LookupListener;
 import org.openide.util.NbBundle;
 import org.openide.util.RequestProcessor;
 
 /**
- * Status-bar element showing the current Git branch of the selected project. Self-contained: it
- * follows the {@link ProjectRegistry}'s selection and queries git on a background thread.
+ * Status-bar element showing the current Git branch of the project in the global action context.
+ * <p>
+ * It follows {@link FxActionContext} (through the {@link ProjectContext} facade) rather than the
+ * project registry directly, so the branch always reflects the current selection - the file picked
+ * in a navigator view, the active editor document, or the selected project - and queries git on a
+ * background thread.
  */
 @FxStatusRegistration(id = "vcs.branch", alignment = FxStatusAlignment.RIGHT, position = 100)
 public final class GitBranchStatusElement implements FxStatusElement {
@@ -43,18 +52,23 @@ public final class GitBranchStatusElement implements FxStatusElement {
     private static final RequestProcessor RP = new RequestProcessor("nbfx-git-branch", 1, true, true);
 
     private final Label label = new Label();
-    private final ChangeListener<OpenProject> listener = (observable, old, now) -> refresh(now);
+    private final List<Lookup.Result<?>> results = new ArrayList<>();
+    private final LookupListener listener = event -> refresh();
 
     /** Creates the element. Must be called on the JavaFX Application Thread. */
     public GitBranchStatusElement() {
         label.getStyleClass().add("status-bar-vcs");
         label.setVisible(false);
         label.setManaged(false);
-        ProjectRegistry registry = Lookup.getDefault().lookup(ProjectRegistry.class);
-        if (registry != null) {
-            registry.selectedProjectProperty().addListener(listener);
+        FxActionContext context = FxActionContext.getDefault();
+        if (context != null) {
+            for (Class<?> type : List.of(FileObject.class, EditorDocument.class, OpenProject.class)) {
+                Lookup.Result<?> result = context.lookupResult(type);
+                result.addLookupListener(listener);
+                results.add(result);
+            }
         }
-        refresh(registry == null ? null : registry.getSelected());
+        refresh();
     }
 
     @Override
@@ -69,13 +83,14 @@ public final class GitBranchStatusElement implements FxStatusElement {
 
     @Override
     public void dispose() {
-        ProjectRegistry registry = Lookup.getDefault().lookup(ProjectRegistry.class);
-        if (registry != null) {
-            registry.selectedProjectProperty().removeListener(listener);
+        for (Lookup.Result<?> result : results) {
+            result.removeLookupListener(listener);
         }
+        results.clear();
     }
 
-    private void refresh(OpenProject project) {
+    private void refresh() {
+        OpenProject project = ProjectContext.selectedProject();
         Path dir = project == null ? null : Paths.get(project.getPath());
         RP.post(() -> {
             String text = "";

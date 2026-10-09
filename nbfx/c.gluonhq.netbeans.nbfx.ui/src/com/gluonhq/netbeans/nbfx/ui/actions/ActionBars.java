@@ -506,10 +506,59 @@ public final class ActionBars {
                         createMenuItem(ActionIds.PREVIOUS_PROJECT, mainScope, null));
             }
         }
+        addSubmenus(windowMenu, "NbFx/Menus/Window", mainScope);
         if (projectSwitcher != null) {
             installOpenProjects(windowMenu);
         }
         return windowMenu;
+    }
+
+    /**
+     * Appends the submenus declared as subfolders of {@code layerPath} (for example
+     * {@code NbFx/Menus/Window/IDE Tools}) to {@code parent}, in position order. A submenu's display
+     * name and position come from the folder attributes written by {@code @FxMenuRegistration}.
+     */
+    private void addSubmenus(Menu parent, String layerPath, ObservableValue<EditorDocument> scope) {
+        FileObject folder = FileUtil.getConfigFile(layerPath);
+        if (folder == null) {
+            return;
+        }
+        List<FileObject> subfolders = new ArrayList<>();
+        for (FileObject child : folder.getChildren()) {
+            if (child.isFolder()) {
+                subfolders.add(child);
+            }
+        }
+        subfolders.sort(Comparator
+                .comparingInt((FileObject f) -> f.getAttribute("position") instanceof Integer p
+                        ? p : Integer.MAX_VALUE)
+                .thenComparing(FileObject::getName));
+        for (FileObject subfolder : subfolders) {
+            Menu submenu = submenu(subfolder, scope);
+            if (submenu != null) {
+                parent.getItems().add(submenu);
+            }
+        }
+    }
+
+    /** Builds the submenu declared by {@code folder}, or {@code null} when it has no items. */
+    private Menu submenu(FileObject folder, ObservableValue<EditorDocument> scope) {
+        List<FxActionRef> refs = ActionLayerReader.read(folder);
+        if (refs.isEmpty()) {
+            return null;
+        }
+        String displayName = folder.getAttribute("displayName") instanceof String s && !s.isEmpty()
+                ? s : folder.getName();
+        Menu menu = new Menu(displayName);
+        for (FxActionRef ref : refs) {
+            MenuItem item = createOptionalMenuItem(ref.actionId(), scope, null);
+            if (item == null) {
+                continue;
+            }
+            addSeparatorIfNeeded(menu, ref);
+            menu.getItems().add(item);
+        }
+        return menu.getItems().isEmpty() ? null : menu;
     }
 
     /** Adds a separator before the next item when the reference asks for one and it is not already there. */

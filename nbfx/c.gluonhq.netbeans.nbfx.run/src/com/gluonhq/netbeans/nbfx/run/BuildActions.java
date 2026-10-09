@@ -30,13 +30,18 @@ import org.openide.filesystems.FileUtil;
 import org.openide.util.Lookup;
 
 /**
- * Resolves the {@link BuildActionProvider} for a project directory and answers whether a command is
- * enabled for it, mirroring the original {@code ActionProvider} lookup and
- * {@code isActionEnabled(command, context)}.
+ * Resolves the {@link BuildActionProvider} for a project and answers whether a command is enabled for
+ * it.
+ * <p>
+ * The provider is looked up in the <b>project's own Lookup</b> (registered with
+ * {@code @ProjectServiceProvider}), mirroring the original {@code ActionProvider} lookup and
+ * {@code isActionEnabled(command, context)}. A marker-file fallback keeps a provider for projects the
+ * platform does not recognise (or that register none), so a build action still works on a plain
+ * Maven/Gradle/Ant directory.
  *
  * @since 1.0
  */
-final class BuildActions {
+public final class BuildActions {
 
     private static final Logger LOG = Logger.getLogger(BuildActions.class.getName());
 
@@ -44,7 +49,26 @@ final class BuildActions {
     }
 
     /** The provider for the project at {@code dir}, or {@code null} when none matches. */
-    static BuildActionProvider providerFor(Path dir) {
+    public static BuildActionProvider providerFor(Path dir) {
+        FileObject fileObject = dir == null ? null : FileUtil.toFileObject(dir.toFile());
+        if (fileObject != null) {
+            try {
+                Project project = ProjectManager.getDefault().findProject(fileObject);
+                if (project != null) {
+                    BuildActionProvider provider = project.getLookup().lookup(BuildActionProvider.class);
+                    if (provider != null) {
+                        return provider;
+                    }
+                }
+            } catch (Exception ex) {
+                LOG.log(Level.FINE, "No project for " + dir, ex);
+            }
+        }
+        return providerByKind(dir);
+    }
+
+    /** The marker-file fallback: a globally registered provider matching the detected build tool. */
+    private static BuildActionProvider providerByKind(Path dir) {
         String kind = kindOf(dir);
         if (kind == null) {
             return null;
@@ -86,7 +110,7 @@ final class BuildActions {
      * Whether {@code command} is enabled for the project at {@code dir}: supported and enabled by
      * its provider, or (when no provider matches) left to the marker-file fallback.
      */
-    static boolean isEnabled(Path dir, String command) {
+    public static boolean isEnabled(Path dir, String command) {
         BuildActionProvider provider = providerFor(dir);
         if (provider == null) {
             return true;

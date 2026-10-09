@@ -4,6 +4,7 @@ import com.gluonhq.netbeans.nbfx.ui.actions.ActionBars;
 import com.gluonhq.netbeans.nbfx.ui.context.ContentManagerImpl;
 import com.gluonhq.netbeans.nbfx.ui.context.EditorContexts;
 import com.gluonhq.netbeans.nbfx.ui.context.FileSelectionContextImpl;
+import com.gluonhq.netbeans.nbfx.ui.context.ViewSelectionContextImpl;
 import com.gluonhq.netbeans.nbfx.ui.project.FileSystemRefresher;
 import com.gluonhq.netbeans.nbfx.ui.project.ProjectLoads;
 import com.gluonhq.netbeans.nbfx.ui.project.ProjectRegistryImpl;
@@ -45,6 +46,7 @@ import com.gluonhq.netbeans.nbfx.api.project.OpenProject;
 import com.gluonhq.netbeans.nbfx.api.project.ProjectRegistry;
 import com.gluonhq.netbeans.nbfx.api.progress.FxProgress;
 import com.gluonhq.netbeans.nbfx.api.view.ViewProvider;
+import com.gluonhq.netbeans.nbfx.api.view.ViewSelectionContext;
 import com.gluonhq.netbeans.nbfx.file.actions.FileUndoManager;
 import java.io.File;
 import java.util.ArrayList;
@@ -139,6 +141,8 @@ public class JavaFXLaunchApp extends Application {
     private final FileSelectionContext fileSelection = fileSelectionContext();
     /** Whether the treeView is focused or not. */
     private final BooleanProperty treeFocused = new SimpleBooleanProperty(false);
+    /** The active-view state published to the global action context (the TopComponent replacement). */
+    private final ViewSelectionContext viewSelection = viewSelectionContext();
 
     @Override
     public void start(Stage stage) {
@@ -754,7 +758,19 @@ public class JavaFXLaunchApp extends Application {
         if (isWithin(focusOwner, dockArea)) {
             dockArea.markFocused(true, focusOwner);
             treeFocused.set(isNavigatorFocused(focusOwner));
+            updateActiveView();
         }
+    }
+
+    /**
+     * Publishes the view whose tab is selected in the focused pane to the global action context, so
+     * the context is tied to the active view (the nbfx replacement for the activated TopComponent).
+     * Editor tabs contribute no view, so the context falls back to the editor selection.
+     */
+    private void updateActiveView() {
+        TabPane focused = NbfxTabPane.focusedPane();
+        Tab selected = focused == null ? null : focused.getSelectionModel().getSelectedItem();
+        viewSelection.setActiveView(NbfxTabPane.viewOf(selected));
     }
 
     /**
@@ -851,6 +867,15 @@ public class JavaFXLaunchApp extends Application {
         if (context == null) {
             LOG.warning("No FileSelectionContext found in the Lookup; using a local instance");
             context = new FileSelectionContextImpl();
+        }
+        return context;
+    }
+
+    private static ViewSelectionContext viewSelectionContext() {
+        ViewSelectionContext context = Lookup.getDefault().lookup(ViewSelectionContext.class);
+        if (context == null) {
+            LOG.warning("No ViewSelectionContext found in the Lookup; using a local instance");
+            context = new ViewSelectionContextImpl();
         }
         return context;
     }
