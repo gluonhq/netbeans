@@ -1,0 +1,107 @@
+package com.gluonhq.netbeans.nbfx.project.ui.maven;
+
+import java.io.InputStream;
+import java.io.OutputStream;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.transform.OutputKeys;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
+import org.openide.filesystems.FileLock;
+import org.openide.filesystems.FileObject;
+import org.openide.util.Exceptions;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.Node;
+
+/**
+ * Minimal read/write access to the top-level elements of a Maven {@code pom.xml} that the General
+ * customizer edits (groupId, artifactId, version, name, packaging).
+ *
+ * @since 1.0
+ */
+final class MavenProjectFiles {
+
+    private static final String POM_NS = "http://maven.apache.org/POM/4.0.0";
+
+    private MavenProjectFiles() {
+    }
+
+    /** The text of the top-level {@code tag} in {@code pom.xml}, or {@code null}. */
+    static String pomEntry(FileObject dir, String tag) {
+        Element project = projectElement(dir);
+        if (project == null) {
+            return null;
+        }
+        Element element = child(project, tag);
+        return element == null ? null : element.getTextContent().trim();
+    }
+
+    /** Sets the text of the top-level {@code tag} in {@code pom.xml}, adding it when absent. */
+    static void setPomEntry(FileObject dir, String tag, String value) {
+        FileObject file = dir.getFileObject("pom.xml");
+        if (file == null || !file.isData()) {
+            return;
+        }
+        try (InputStream in = file.getInputStream()) {
+            Document document = newDocumentBuilder().parse(in);
+            Element project = document.getDocumentElement();
+            Element element = child(project, tag);
+            if (element == null) {
+                element = document.createElementNS(POM_NS, tag);
+                project.appendChild(element);
+            }
+            element.setTextContent(value);
+            write(file, document);
+        } catch (Exception ex) {
+            Exceptions.printStackTrace(ex);
+        }
+    }
+
+    private static Element projectElement(FileObject dir) {
+        FileObject file = dir.getFileObject("pom.xml");
+        if (file == null || !file.isData()) {
+            return null;
+        }
+        try (InputStream in = file.getInputStream()) {
+            return newDocumentBuilder().parse(in).getDocumentElement();
+        } catch (Exception ex) {
+            Exceptions.printStackTrace(ex);
+            return null;
+        }
+    }
+
+    private static Element child(Element parent, String localName) {
+        for (Node node = parent.getFirstChild(); node != null; node = node.getNextSibling()) {
+            if (node.getNodeType() == Node.ELEMENT_NODE && localName.equals(node.getLocalName())) {
+                return (Element) node;
+            }
+        }
+        return null;
+    }
+
+    private static DocumentBuilder newDocumentBuilder() throws Exception {
+        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        factory.setNamespaceAware(true);
+        return factory.newDocumentBuilder();
+    }
+
+    private static void write(FileObject file, Document document) throws Exception {
+        Transformer transformer = TransformerFactory.newInstance().newTransformer();
+        transformer.setOutputProperty(OutputKeys.INDENT, "yes");
+        transformer.setOutputProperty(OutputKeys.ENCODING, "UTF-8");
+        FileLock lock = null;
+        try {
+            lock = file.lock();
+            try (OutputStream out = file.getOutputStream(lock)) {
+                transformer.transform(new DOMSource(document), new StreamResult(out));
+            }
+        } finally {
+            if (lock != null) {
+                lock.releaseLock();
+            }
+        }
+    }
+}
