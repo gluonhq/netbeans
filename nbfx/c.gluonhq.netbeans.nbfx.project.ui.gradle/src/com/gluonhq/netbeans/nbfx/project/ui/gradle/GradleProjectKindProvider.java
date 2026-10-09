@@ -153,10 +153,8 @@ public final class GradleProjectKindProvider implements ProjectKindProvider {
                 Matcher quoted = QUOTED.matcher(include.group(1));
                 while (quoted.find()) {
                     String projectPath = quoted.group(1).trim();
-                    if (!projectPath.startsWith(":")) {
-                        continue;
-                    }
-                    String relative = projectPath.substring(1).replace(':', '/');
+                    String relative = (projectPath.startsWith(":") ? projectPath.substring(1) : projectPath)
+                            .replace(':', '/');
                     if (!relative.isBlank()) {
                         paths.add(relative);
                     }

@@ -36,11 +36,12 @@ public class GradleProjectKindProviderTest {
         Files.writeString(settings, String.join("\n",
                 "rootProject.name = 'demo'",
                 "include ':app'",
+                "include 'noColon'",
                 "include ':libs:core', ':libs:util'",
                 "include(\":feature\")",
                 "// include ':ignored'",
                 "include ':commented' // trailing"));
-        assertEquals(List.of("app", "libs/core", "libs/util", "feature", "commented"), parse(settings));
+        assertEquals(List.of("app", "noColon", "libs/core", "libs/util", "feature", "commented"), parse(settings));
     }
 
     @Test
