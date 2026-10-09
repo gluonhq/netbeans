@@ -8,6 +8,8 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.openide.filesystems.FileLock;
 import org.openide.filesystems.FileObject;
 import org.openide.util.Exceptions;
@@ -78,6 +80,66 @@ final class AntProjectFiles {
             lines.add(key + ": " + value);
         }
         write(file, lines);
+    }
+
+    /** The public packages declared in {@code nbproject/project.xml}, in order. */
+    static List<String> publicPackages(FileObject dir) {
+        List<String> result = new ArrayList<>();
+        FileObject file = dir.getFileObject("nbproject/project.xml");
+        if (file == null || !file.isData()) {
+            return result;
+        }
+        String xml = text(file);
+        int start = xml.indexOf("<public-packages>");
+        int end = xml.indexOf("</public-packages>");
+        if (start < 0 || end < 0) {
+            return result;
+        }
+        Matcher matcher = Pattern.compile("<subpackages>([^<]*)</subpackages>")
+                .matcher(xml.substring(start, end));
+        while (matcher.find()) {
+            result.add(matcher.group(1).trim());
+        }
+        return result;
+    }
+
+    /** Replaces the public packages in {@code nbproject/project.xml}. */
+    static void setPublicPackages(FileObject dir, List<String> packages) {
+        FileObject file = dir.getFileObject("nbproject/project.xml");
+        if (file == null || !file.isData()) {
+            return;
+        }
+        String xml = text(file);
+        String indent = "                ";
+        StringBuilder block = new StringBuilder("<public-packages>");
+        for (String pkg : packages) {
+            block.append("\n").append(indent).append("    <subpackages>").append(pkg).append("</subpackages>");
+        }
+        block.append("\n").append(indent).append("</public-packages>");
+        int start = xml.indexOf("<public-packages>");
+        int end = xml.indexOf("</public-packages>");
+        String updated;
+        if (start >= 0 && end >= 0) {
+            updated = xml.substring(0, start) + block + xml.substring(end + "</public-packages>".length());
+        } else {
+            int closeData = xml.indexOf("</data>");
+            updated = xml.substring(0, closeData) + indent + block + "\n" + xml.substring(closeData);
+        }
+        write(file, List.of(updated.split("\n", -1)));
+    }
+
+    private static String text(FileObject file) {
+        StringBuilder builder = new StringBuilder();
+        try (InputStream in = file.getInputStream();
+                BufferedReader reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                builder.append(line).append('\n');
+            }
+        } catch (IOException ex) {
+            Exceptions.printStackTrace(ex);
+        }
+        return builder.toString();
     }
 
     private static boolean setEntry(List<String> lines, String key, String value, char separator) {
