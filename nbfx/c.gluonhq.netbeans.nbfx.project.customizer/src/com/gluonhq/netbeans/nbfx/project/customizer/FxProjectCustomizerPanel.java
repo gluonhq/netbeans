@@ -23,6 +23,11 @@ public interface FxProjectCustomizerPanel {
     /** A stable id for the category (e.g. {@code "sources"}). */
     String id();
 
+    /** The id of the parent category, or {@code null} for a top-level category. */
+    default String parentId() {
+        return null;
+    }
+
     /** The category's display name, shown in the category list. */
     String displayName();
 
@@ -31,7 +36,10 @@ public interface FxProjectCustomizerPanel {
         return 100;
     }
 
-    /** Builds the JavaFX panel for {@code project}. Called on the JavaFX thread. */
+    /**
+     * Builds the JavaFX panel for {@code project}, or {@code null} when this category is only a
+     * folder holding sub-categories. Called on the JavaFX thread.
+     */
     Node createPanel(Project project);
 
     /** Whether the panel has changes to apply. Drives the Apply button's enablement. */
