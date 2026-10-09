@@ -26,7 +26,7 @@ import org.gradle.tooling.ProjectConnection;
  */
 final class GradleBuild implements BuildExecution {
 
-    private static final String DEFAULT_GRADLE_VERSION = "8.10";
+    private static final String DEFAULT_GRADLE_VERSION = "9.8";
 
     private final Path dir;
     private final String[] tasks;
@@ -50,11 +50,13 @@ final class GradleBuild implements BuildExecution {
 
     private void run() {
         try {
+            output.append("Connecting to Gradle...\n");
             GradleConnector connector = GradleConnector.newConnector().forProjectDirectory(dir.toFile());
             configureDistribution(connector);
             CancellationTokenSource source = GradleConnector.newCancellationTokenSource();
             token.set(source);
             try (ProjectConnection connection = connector.connect()) {
+                output.append("Connected. Running: " + String.join(" ", tasks) + "\n");
                 BuildLauncher launcher = connection.newBuild();
                 launcher.forTasks(tasks);
                 launcher.setStandardOutput(outputStream());
@@ -64,8 +66,10 @@ final class GradleBuild implements BuildExecution {
                 launcher.run();
             }
             output.append("\nBUILD SUCCESSFUL\n");
-        } catch (Exception ex) {
-            output.append("\nBUILD FAILED: " + ex.getMessage() + "\n");
+        } catch (Throwable ex) {
+            output.append("\nBUILD FAILED: " + ex + "\n");
+            java.util.logging.Logger.getLogger(GradleBuild.class.getName())
+                    .log(java.util.logging.Level.WARNING, "Gradle build failed", ex);
         } finally {
             token.set(null);
             progress.finish();
@@ -113,10 +117,26 @@ final class GradleBuild implements BuildExecution {
             @Override
             public synchronized void write(int b) {
                 if (b == '\n') {
-                    output.append(line + "\n");
-                    line.setLength(0);
+                    flushLine();
                 } else if (b != '\r') {
                     line.append((char) b);
+                }
+            }
+
+            @Override
+            public synchronized void flush() {
+                flushLine();
+            }
+
+            @Override
+            public synchronized void close() {
+                flushLine();
+            }
+
+            private void flushLine() {
+                if (line.length() > 0) {
+                    output.append(line + "\n");
+                    line.setLength(0);
                 }
             }
         };
