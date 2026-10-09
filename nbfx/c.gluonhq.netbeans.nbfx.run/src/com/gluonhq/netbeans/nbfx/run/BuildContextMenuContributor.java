@@ -19,6 +19,7 @@
 package com.gluonhq.netbeans.nbfx.run;
 
 import com.gluonhq.netbeans.nbfx.api.actions.FileContextMenuContributor;
+import com.gluonhq.netbeans.nbfx.project.ui.api.BuildAction;
 import java.io.File;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -56,17 +57,17 @@ public final class BuildContextMenuContributor implements FileContextMenuContrib
             }
             String base = folder.getName();
             List<MenuItem> items = new ArrayList<>(5);
-            items.add(item("BuildCommand.build", dir, BuildTool.Action.BUILD, base));
-            items.add(item("BuildCommand.cleanBuild", dir, BuildTool.Action.CLEAN_BUILD, base));
-            items.add(item("BuildCommand.clean", dir, BuildTool.Action.CLEAN, base));
-            items.add(item("BuildCommand.test", dir, BuildTool.Action.TEST, base));
-            items.add(item("BuildCommand.run", dir, BuildTool.Action.RUN, base));
+            items.add(item("BuildCommand.build", dir, BuildAction.BUILD, base));
+            items.add(item("BuildCommand.cleanBuild", dir, BuildAction.CLEAN_BUILD, base));
+            items.add(item("BuildCommand.clean", dir, BuildAction.CLEAN, base));
+            items.add(item("BuildCommand.test", dir, BuildAction.TEST, base));
+            items.add(item("BuildCommand.run", dir, BuildAction.RUN, base));
             return items;
         }
         return List.of();
     }
 
-    private MenuItem item(String key, Path dir, BuildTool.Action action, String base) {
+    private MenuItem item(String key, Path dir, BuildAction action, String base) {
         String text = NbBundle.getMessage(BuildContextMenuContributor.class, key);
         MenuItem item = new MenuItem(text);
         item.setOnAction(event -> BuildRunner.run(dir, action, text + " " + base));

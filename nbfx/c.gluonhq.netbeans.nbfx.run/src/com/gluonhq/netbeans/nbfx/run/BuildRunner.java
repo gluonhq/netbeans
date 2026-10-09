@@ -21,10 +21,18 @@ package com.gluonhq.netbeans.nbfx.run;
 import com.gluonhq.netbeans.nbfx.api.progress.FxProgress;
 import com.gluonhq.netbeans.nbfx.output.FxConsole;
 import com.gluonhq.netbeans.nbfx.output.FxOutput;
+import com.gluonhq.netbeans.nbfx.project.ui.api.BuildAction;
+import com.gluonhq.netbeans.nbfx.project.ui.api.BuildActionProvider;
+import com.gluonhq.netbeans.nbfx.project.ui.api.ProjectKinds;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.logging.Level;
 import java.util.logging.Logger;
+import org.netbeans.api.project.Project;
+import org.netbeans.api.project.ProjectManager;
+import org.openide.filesystems.FileObject;
+import org.openide.filesystems.FileUtil;
 import org.openide.util.Lookup;
 import org.openide.util.NbBundle;
 
@@ -46,7 +54,7 @@ final class BuildRunner {
     private BuildRunner() {
     }
 
-    static void run(Path dir, BuildTool.Action action, String consoleName) {
+    static void run(Path dir, BuildAction action, String consoleName) {
         if (dir == null) {
             return;
         }
@@ -59,8 +67,7 @@ final class BuildRunner {
         console.clear();
         console.show();
 
-        BuildTool tool = BuildTool.detect(dir);
-        List<String> command = tool.commandLine(dir, action);
+        List<String> command = command(dir, action);
         if (command == null) {
             console.append(NbBundle.getMessage(BuildRunner.class, "BuildCommand.noTool") + "\n");
             return;
@@ -81,5 +88,43 @@ final class BuildRunner {
                 progress.finish();
             }
         });
+    }
+
+    /**
+     * The command line for {@code action}: the project-type {@link BuildActionProvider} for the
+     * project at {@code dir} when there is one, otherwise the marker-file detected {@link BuildTool}.
+     * This mirrors the original {@code ProjectAction} dispatching to the project's {@code ActionProvider}.
+     */
+    private static List<String> command(Path dir, BuildAction action) {
+        BuildActionProvider provider = providerFor(dir);
+        if (provider != null) {
+            List<String> command = provider.commandLine(dir, action);
+            if (command != null) {
+                return command;
+            }
+        }
+        return BuildTool.detect(dir).commandLine(dir, action);
+    }
+
+    private static BuildActionProvider providerFor(Path dir) {
+        FileObject fileObject = FileUtil.toFileObject(dir.toFile());
+        if (fileObject == null) {
+            return null;
+        }
+        try {
+            Project project = ProjectManager.getDefault().findProject(fileObject);
+            if (project == null) {
+                return null;
+            }
+            String kind = ProjectKinds.providerOf(project).id();
+            for (BuildActionProvider provider : Lookup.getDefault().lookupAll(BuildActionProvider.class)) {
+                if (kind.equals(provider.projectTypeId())) {
+                    return provider;
+                }
+            }
+        } catch (Exception ex) {
+            LOG.log(Level.FINE, "No project for " + dir, ex);
+        }
+        return null;
     }
 }

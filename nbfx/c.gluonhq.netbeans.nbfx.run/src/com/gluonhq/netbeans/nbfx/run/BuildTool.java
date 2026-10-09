@@ -18,6 +18,7 @@
  */
 package com.gluonhq.netbeans.nbfx.run;
 
+import com.gluonhq.netbeans.nbfx.project.ui.api.BuildAction;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -42,20 +43,6 @@ public enum BuildTool {
 
     /** No supported build tool. */
     UNKNOWN;
-
-    /** The build action to run. */
-    public enum Action {
-        /** Compiles and packages the project. */
-        BUILD,
-        /** Cleans the build output and then builds the project. */
-        CLEAN_BUILD,
-        /** Removes the build output. */
-        CLEAN,
-        /** Runs the project's tests. */
-        TEST,
-        /** Runs the project. */
-        RUN
-    }
 
     /**
      * Detects the build tool of {@code dir} from its marker files, preferring Maven, then Gradle,
@@ -89,7 +76,7 @@ public enum BuildTool {
      * @param action the action to run
      * @return the command line, or {@code null}
      */
-    public List<String> commandLine(Path dir, Action action) {
+    public List<String> commandLine(Path dir, BuildAction action) {
         return switch (this) {
             case MAVEN -> maven(dir, action);
             case GRADLE -> gradle(dir, action);
@@ -98,7 +85,7 @@ public enum BuildTool {
         };
     }
 
-    private static List<String> maven(Path dir, Action action) {
+    private static List<String> maven(Path dir, BuildAction action) {
         List<String> goals = switch (action) {
             case BUILD -> List.of("package");
             case CLEAN_BUILD -> List.of("clean", "package");
@@ -109,7 +96,7 @@ public enum BuildTool {
         return prepend(executable(dir, "mvnw", "mvn"), goals);
     }
 
-    private static List<String> gradle(Path dir, Action action) {
+    private static List<String> gradle(Path dir, BuildAction action) {
         String executable = executable(dir, "gradlew", "gradle");
         return switch (action) {
             case BUILD -> List.of(executable, "build");
@@ -126,7 +113,7 @@ public enum BuildTool {
      * targets ({@code build}, {@code clean}, {@code test-unit}, {@code run}), while a plain Ant
      * project uses the conventional {@code jar}/{@code test}/{@code run}.
      */
-    private static List<String> ant(Path dir, Action action) {
+    private static List<String> ant(Path dir, BuildAction action) {
         boolean netbeansModule = Files.isRegularFile(dir.resolve("nbproject").resolve("project.xml"));
         if (netbeansModule) {
             return switch (action) {
