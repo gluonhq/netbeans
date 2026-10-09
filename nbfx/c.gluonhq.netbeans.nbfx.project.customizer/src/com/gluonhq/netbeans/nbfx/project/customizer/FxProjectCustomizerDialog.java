@@ -48,11 +48,18 @@ public final class FxProjectCustomizerDialog {
             }
         });
 
+        // Create every panel up front, so each has initialised its fields before the button state is
+        // computed from isChanged()/isValid() over all panels.
+        Map<FxProjectCustomizerPanel, Node> contents = new HashMap<>();
+        for (FxProjectCustomizerPanel panel : panels) {
+            contents.put(panel, panel.createPanel(project));
+        }
+
         StackPane content = new StackPane();
         content.setPadding(new Insets(12));
         content.setPrefSize(520, 360);
         categories.getSelectionModel().selectedItemProperty().addListener((observable, old, item) -> {
-            Node panel = item == null ? null : item.getValue().createPanel(project);
+            Node panel = item == null ? null : contents.get(item.getValue());
             content.getChildren().setAll(panel == null ? List.of() : List.of(panel));
         });
         selectFirstLeaf(categories);
