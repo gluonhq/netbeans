@@ -3,20 +3,25 @@ package com.gluonhq.netbeans.nbfx.project.ui.maven;
 import com.gluonhq.netbeans.nbfx.project.customizer.FxProjectCustomizerPanel;
 import javafx.scene.Node;
 import javafx.scene.control.Label;
-import javafx.scene.layout.VBox;
+import javafx.scene.control.TextField;
+import javafx.scene.layout.ColumnConstraints;
+import javafx.scene.layout.GridPane;
+import javafx.scene.layout.Priority;
 import org.netbeans.api.project.Project;
-import org.netbeans.api.project.ProjectUtils;
-import org.netbeans.api.project.SourceGroup;
-import org.netbeans.api.project.Sources;
+import org.openide.filesystems.FileObject;
 import org.openide.util.NbBundle;
 import org.openide.util.lookup.ServiceProvider;
 
 /**
- * The Maven "Sources" project-properties category: the project's source roots. Read-only for now;
- * the same registration would back an editable panel.
+ * The Maven "Sources" category: the POM's {@code <build>} source and test-source directories.
  */
 @ServiceProvider(service = FxProjectCustomizerPanel.class)
 public final class MavenSourcesCustomizerPanel implements FxProjectCustomizerPanel {
+
+    private TextField sourceDirectory;
+    private TextField testSourceDirectory;
+    private String initialSource;
+    private String initialTest;
 
     @Override
     public String projectTypeId() {
@@ -35,24 +40,47 @@ public final class MavenSourcesCustomizerPanel implements FxProjectCustomizerPan
 
     @Override
     public int position() {
-        return 100;
+        return 200;
     }
 
     @Override
     public Node createPanel(Project project) {
-        VBox box = new VBox(4);
-        Sources sources = ProjectUtils.getSources(project);
-        addGroups(box, sources, "java");
-        addGroups(box, sources, "resources");
-        if (box.getChildren().isEmpty()) {
-            box.getChildren().add(new Label(NbBundle.getMessage(MavenSourcesCustomizerPanel.class, "Sources.none")));
-        }
-        return box;
+        FileObject dir = project.getProjectDirectory();
+        initialSource = MavenProjectFiles.pomBuildEntry(dir, "sourceDirectory");
+        initialTest = MavenProjectFiles.pomBuildEntry(dir, "testSourceDirectory");
+        sourceDirectory = new TextField(initialSource == null ? "" : initialSource);
+        testSourceDirectory = new TextField(initialTest == null ? "" : initialTest);
+        GridPane grid = new GridPane();
+        grid.setHgap(8);
+        grid.setVgap(8);
+        ColumnConstraints labels = new ColumnConstraints();
+        ColumnConstraints values = new ColumnConstraints();
+        values.setHgrow(Priority.ALWAYS);
+        grid.getColumnConstraints().addAll(labels, values);
+        grid.addRow(0, new Label(NbBundle.getMessage(MavenSourcesCustomizerPanel.class, "Sources.sourceDir")),
+                sourceDirectory);
+        grid.addRow(1, new Label(NbBundle.getMessage(MavenSourcesCustomizerPanel.class, "Sources.testSourceDir")),
+                testSourceDirectory);
+        return grid;
     }
 
-    private static void addGroups(VBox box, Sources sources, String type) {
-        for (SourceGroup group : sources.getSourceGroups(type)) {
-            box.getChildren().add(new Label(group.getDisplayName() + ": " + group.getRootFolder().getPath()));
+    @Override
+    public boolean isChanged() {
+        return changed(initialSource, sourceDirectory) || changed(initialTest, testSourceDirectory);
+    }
+
+    @Override
+    public void apply(Project project) {
+        FileObject dir = project.getProjectDirectory();
+        if (changed(initialSource, sourceDirectory)) {
+            MavenProjectFiles.setPomBuildEntry(dir, "sourceDirectory", sourceDirectory.getText().trim());
         }
+        if (changed(initialTest, testSourceDirectory)) {
+            MavenProjectFiles.setPomBuildEntry(dir, "testSourceDirectory", testSourceDirectory.getText().trim());
+        }
+    }
+
+    private static boolean changed(String initial, TextField field) {
+        return !(initial == null ? "" : initial).equals(field.getText().trim());
     }
 }

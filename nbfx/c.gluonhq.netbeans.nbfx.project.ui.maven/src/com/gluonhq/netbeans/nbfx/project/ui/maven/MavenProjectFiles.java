@@ -29,6 +29,46 @@ final class MavenProjectFiles {
     private MavenProjectFiles() {
     }
 
+    /** The value of the POM {@code <build>} entry {@code tag}, or {@code null}. */
+    static String pomBuildEntry(FileObject dir, String tag) {
+        Element project = projectElement(dir);
+        if (project == null) {
+            return null;
+        }
+        Element build = child(project, "build");
+        if (build == null) {
+            return null;
+        }
+        Element element = child(build, tag);
+        return element == null ? null : element.getTextContent().trim();
+    }
+
+    /** Sets the POM {@code <build>} entry {@code tag}, adding {@code <build>} when absent. */
+    static void setPomBuildEntry(FileObject dir, String tag, String value) {
+        FileObject file = dir.getFileObject("pom.xml");
+        if (file == null || !file.isData()) {
+            return;
+        }
+        try (InputStream in = file.getInputStream()) {
+            Document document = newDocumentBuilder().parse(in);
+            Element project = document.getDocumentElement();
+            Element build = child(project, "build");
+            if (build == null) {
+                build = document.createElementNS(POM_NS, "build");
+                project.appendChild(build);
+            }
+            Element element = child(build, tag);
+            if (element == null) {
+                element = document.createElementNS(POM_NS, tag);
+                build.appendChild(element);
+            }
+            element.setTextContent(value);
+            write(file, document);
+        } catch (Exception ex) {
+            Exceptions.printStackTrace(ex);
+        }
+    }
+
     /** The text of the top-level {@code tag} in {@code pom.xml}, or {@code null}. */
     static String pomEntry(FileObject dir, String tag) {
         Element project = projectElement(dir);
