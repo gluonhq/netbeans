@@ -49,7 +49,10 @@ final class BuildCommand implements Command {
         this.command = command;
         if (projects != null) {
             disabled.bind(Bindings.createBooleanBinding(
-                    () -> projects.selectedProjectProperty().getValue() == null,
+                    () -> {
+                        OpenProject project = projects.selectedProjectProperty().getValue();
+                        return project == null || !BuildActions.isEnabled(Paths.get(project.getPath()), command);
+                    },
                     projects.selectedProjectProperty()));
         }
     }
