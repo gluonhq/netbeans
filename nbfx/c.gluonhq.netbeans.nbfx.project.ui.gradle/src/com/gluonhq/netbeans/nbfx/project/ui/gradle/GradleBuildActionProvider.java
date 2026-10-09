@@ -2,12 +2,16 @@ package com.gluonhq.netbeans.nbfx.project.ui.gradle;
 
 import com.gluonhq.netbeans.nbfx.project.ui.api.BuildActionProvider;
 import com.gluonhq.netbeans.nbfx.project.ui.api.BuildCommands;
+import com.gluonhq.netbeans.nbfx.project.ui.api.BuildExecution;
+import com.gluonhq.netbeans.nbfx.project.ui.api.BuildOutput;
+import com.gluonhq.netbeans.nbfx.project.ui.api.BuildProgress;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import org.openide.util.lookup.ServiceProvider;
 
-/** Gradle build commands: tasks run with a project-local {@code gradlew} when present, else {@code gradle}. */
+/** Gradle build commands, run in-process with the Gradle Tooling API (CLI fallback via gradlew). */
 @ServiceProvider(service = BuildActionProvider.class)
 public final class GradleBuildActionProvider implements BuildActionProvider {
 
@@ -26,14 +30,35 @@ public final class GradleBuildActionProvider implements BuildActionProvider {
 
     @Override
     public List<String> commandLine(Path dir, String command) {
-        String executable = executable(dir, "gradlew", "gradle");
+        String[] tasks = tasks(command);
+        if (tasks == null) {
+            return null;
+        }
+        List<String> line = new ArrayList<>(tasks.length + 1);
+        line.add(executable(dir, "gradlew", "gradle"));
+        line.addAll(List.of(tasks));
+        return List.copyOf(line);
+    }
+
+    @Override
+    public BuildExecution start(Path dir, String command, BuildOutput output, BuildProgress progress) {
+        String[] tasks = tasks(command);
+        if (tasks == null) {
+            return null;
+        }
+        GradleBuild build = new GradleBuild(dir, tasks, output, progress);
+        build.start();
+        return build;
+    }
+
+    private static String[] tasks(String command) {
         return switch (command) {
-            case BuildCommands.BUILD -> List.of(executable, "build");
-            case BuildCommands.CLEAN -> List.of(executable, "clean");
-            case BuildCommands.REBUILD -> List.of(executable, "clean", "build");
-            case BuildCommands.TEST -> List.of(executable, "test");
-            case BuildCommands.RUN -> List.of(executable, "run");
-            case BuildCommands.JAVADOC -> List.of(executable, "javadoc");
+            case BuildCommands.BUILD -> new String[] {"build"};
+            case BuildCommands.CLEAN -> new String[] {"clean"};
+            case BuildCommands.REBUILD -> new String[] {"clean", "build"};
+            case BuildCommands.TEST -> new String[] {"test"};
+            case BuildCommands.RUN -> new String[] {"run"};
+            case BuildCommands.JAVADOC -> new String[] {"javadoc"};
             default -> null;
         };
     }
