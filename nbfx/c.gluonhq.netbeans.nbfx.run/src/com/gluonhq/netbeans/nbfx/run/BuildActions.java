@@ -45,25 +45,41 @@ final class BuildActions {
 
     /** The provider for the project at {@code dir}, or {@code null} when none matches. */
     static BuildActionProvider providerFor(Path dir) {
-        FileObject fileObject = dir == null ? null : FileUtil.toFileObject(dir.toFile());
-        if (fileObject == null) {
+        String kind = kindOf(dir);
+        if (kind == null) {
             return null;
         }
-        try {
-            Project project = ProjectManager.getDefault().findProject(fileObject);
-            if (project == null) {
-                return null;
+        for (BuildActionProvider provider : Lookup.getDefault().lookupAll(BuildActionProvider.class)) {
+            if (kind.equals(provider.projectTypeId())) {
+                return provider;
             }
-            String kind = ProjectKinds.providerOf(project).id();
-            for (BuildActionProvider provider : Lookup.getDefault().lookupAll(BuildActionProvider.class)) {
-                if (kind.equals(provider.projectTypeId())) {
-                    return provider;
-                }
-            }
-        } catch (Exception ex) {
-            LOG.log(Level.FINE, "No project for " + dir, ex);
         }
         return null;
+    }
+
+    /**
+     * The project-kind id of {@code dir}: from the project model when it can be resolved, otherwise
+     * from the marker-file detected build tool, so a provider is found even when the project is not
+     * (yet) recognised by the platform.
+     */
+    private static String kindOf(Path dir) {
+        FileObject fileObject = dir == null ? null : FileUtil.toFileObject(dir.toFile());
+        if (fileObject != null) {
+            try {
+                Project project = ProjectManager.getDefault().findProject(fileObject);
+                if (project != null) {
+                    return ProjectKinds.providerOf(project).id();
+                }
+            } catch (Exception ex) {
+                LOG.log(Level.FINE, "No project for " + dir, ex);
+            }
+        }
+        return switch (BuildTool.detect(dir)) {
+            case MAVEN -> "maven";
+            case GRADLE -> "gradle";
+            case ANT -> "ant";
+            case UNKNOWN -> null;
+        };
     }
 
     /**

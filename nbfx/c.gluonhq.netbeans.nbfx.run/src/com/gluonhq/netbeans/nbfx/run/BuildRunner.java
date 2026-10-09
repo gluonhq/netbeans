@@ -28,6 +28,7 @@ import com.gluonhq.netbeans.nbfx.project.ui.api.BuildProgress;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.openide.util.Lookup;
 import org.openide.util.NbBundle;
@@ -62,11 +63,19 @@ final class BuildRunner {
 
         FxProgress progress = Lookup.getDefault().lookup(FxProgress.class);
         BuildActionProvider provider = BuildActions.providerFor(dir);
+        LOG.info(() -> "Build " + command + " in " + dir + " via "
+                + (provider == null ? "CLI" : provider.getClass().getName()));
         if (provider != null) {
-            BuildExecution execution = provider.start(dir, command,
-                    output(console), progress(progress, consoleName));
-            if (execution != null) {
-                return;
+            try {
+                BuildExecution execution = provider.start(dir, command,
+                        output(console), progress(progress, consoleName));
+                if (execution != null) {
+                    return;
+                }
+                LOG.info(() -> provider.getClass().getName() + " has no in-process executor; using CLI");
+            } catch (Throwable t) {
+                LOG.log(Level.WARNING, "In-process build failed; falling back to CLI", t);
+                console.append("\n[in-process build failed: " + t + "]\n");
             }
         }
         runCli(dir, command, consoleName, console, progress);
