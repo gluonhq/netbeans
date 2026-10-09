@@ -104,6 +104,8 @@ public class JavaFXLaunchApp extends Application {
     private LineSeparatorStatusElement lineSeparatorElement;
     private ProgressStatusElement progressElement;
     private final ProjectRegistry projectRegistry = projectRegistry();
+    /** The running application, so services (e.g. the project opener) can reach it. */
+    private static volatile JavaFXLaunchApp instance;
     private boolean projectStateCaptured;
     /** Whether at least one project is currently open; drives Close Project enablement. */
     private final BooleanBinding projectOpen = Bindings.isNotEmpty(projectRegistry.getOpenProjects());
@@ -141,6 +143,7 @@ public class JavaFXLaunchApp extends Application {
     @Override
     public void start(Stage stage) {
         this.stage = stage;
+        instance = this;
         // Resolve navigator providers up front
         providers = Lookup.getDefault().lookupAll(NavigatorProvider.class);
         LOG.fine("PROVIDERS = " + providers);
@@ -973,6 +976,19 @@ public class JavaFXLaunchApp extends Application {
             provider.restoreExpandedPaths(rootFileObject, expandedPaths);
             provider.restoreSelectedPath(rootFileObject, appState.getSelectedNode(projectDir.getPath()));
             provider.addProject(rootFoContext);
+        }
+    }
+
+    /** The running application, or {@code null} before it starts. */
+    public static JavaFXLaunchApp instance() {
+        return instance;
+    }
+
+    /** Opens the project rooted at {@code root} (the full flow: navigators and registry). */
+    public void openProject(FileObject root) {
+        File file = root == null ? null : FileUtil.toFile(root);
+        if (file != null) {
+            openProject(file);
         }
     }
 

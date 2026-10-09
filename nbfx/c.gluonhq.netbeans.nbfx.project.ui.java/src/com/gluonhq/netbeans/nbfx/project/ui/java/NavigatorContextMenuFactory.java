@@ -6,6 +6,7 @@ import com.gluonhq.netbeans.nbfx.api.actions.Command;
 import com.gluonhq.netbeans.nbfx.api.actions.FileContextMenuContributor;
 import com.gluonhq.netbeans.nbfx.api.editor.EditorContext;
 import com.gluonhq.netbeans.nbfx.api.project.OpenProject;
+import com.gluonhq.netbeans.nbfx.api.project.ProjectOpener;
 import com.gluonhq.netbeans.nbfx.api.project.ProjectRegistry;
 import com.gluonhq.netbeans.nbfx.file.actions.DesktopActions;
 import com.gluonhq.netbeans.nbfx.file.actions.FileClipboardActions;
@@ -264,9 +265,14 @@ final class NavigatorContextMenuFactory<T> {
     private static MenuItem openProjectItem(FileObject root) {
         MenuItem item = new MenuItem(message("ContextMenu.openProject"));
         item.setOnAction(e -> {
-            ProjectRegistry registry = Projects.registry();
-            if (registry != null) {
-                registry.open(root);
+            ProjectOpener opener = Lookup.getDefault().lookup(ProjectOpener.class);
+            if (opener != null) {
+                opener.open(root);
+            } else {
+                ProjectRegistry registry = Projects.registry();
+                if (registry != null) {
+                    registry.open(root);
+                }
             }
         });
         return item;

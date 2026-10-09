@@ -3,7 +3,7 @@ package com.gluonhq.netbeans.nbfx.project.ui.java;
 import com.gluonhq.netbeans.nbfx.annotations.FxViewLocation;
 import com.gluonhq.netbeans.nbfx.annotations.FxViewRegistration;
 import com.gluonhq.netbeans.nbfx.api.NavigatorProvider;
-import com.gluonhq.netbeans.nbfx.api.project.ProjectRegistry;
+import com.gluonhq.netbeans.nbfx.api.project.ProjectOpener;
 import com.gluonhq.netbeans.nbfx.project.ui.api.ProjectDirectory;
 import com.gluonhq.netbeans.nbfx.project.ui.api.ProjectFile;
 import com.gluonhq.netbeans.nbfx.project.ui.api.ProjectKindProvider;
@@ -285,9 +285,9 @@ public class ProjectNavigatorImpl extends AbstractNavigatorProvider<ProjectEntry
                         && selectedProjectEntry.getType() == ProjectEntry.Type.NAME
                         && !NavigatorHosts.isProjectRoot(selectedItem)) {
                     // A subproject: double-clicking opens it as its own project.
-                    ProjectRegistry registry = Projects.registry();
-                    if (registry != null) {
-                        registry.open(selectedProjectEntry.getFileObject());
+                    ProjectOpener opener = Lookup.getDefault().lookup(ProjectOpener.class);
+                    if (opener != null) {
+                        opener.open(selectedProjectEntry.getFileObject());
                     }
                 } else {
                     PackageScanner.openFile(selectedProjectEntry);
