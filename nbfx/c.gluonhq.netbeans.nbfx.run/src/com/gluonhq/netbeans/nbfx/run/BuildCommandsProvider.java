@@ -52,7 +52,9 @@ public final class BuildCommandsProvider implements CommandsProvider {
                 new BuildCommand(projects, ActionIds.TEST, message("BuildCommand.test"),
                         BuildCommands.TEST),
                 new BuildCommand(projects, ActionIds.RUN, message("BuildCommand.run"),
-                        BuildCommands.RUN));
+                        BuildCommands.RUN),
+                new BuildCommand(projects, ActionIds.JAVADOC, message("BuildCommand.javadoc"),
+                        BuildCommands.JAVADOC));
     }
 
     private static String message(String key) {

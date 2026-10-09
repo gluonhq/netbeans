@@ -163,6 +163,9 @@ public final class ActionIds {
     /** Runs the selected project. */
     public static final String RUN = "run";
 
+    /** Generates the selected project's javadoc. */
+    public static final String JAVADOC = "javadoc";
+
     private ActionIds() {
     }
 }

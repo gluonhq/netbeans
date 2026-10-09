@@ -21,6 +21,7 @@ package com.gluonhq.netbeans.nbfx.run;
 import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.BUILD;
 import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.CLEAN;
 import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.CLEAN_BUILD;
+import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.JAVADOC;
 import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.RUN;
 import static com.gluonhq.netbeans.nbfx.api.actions.ActionIds.TEST;
 
@@ -39,6 +40,7 @@ import com.gluonhq.netbeans.nbfx.annotations.FxMenuRegistration;
 @FxActionReference(id = CLEAN, path = "Menus/Build", position = 30, separatorBefore = true)
 @FxActionReference(id = TEST, path = "Menus/Build", position = 40, separatorBefore = true)
 @FxActionReference(id = RUN, path = "Menus/Build", position = 50, separatorBefore = true)
+@FxActionReference(id = JAVADOC, path = "Menus/Build", position = 60, separatorBefore = true)
 final class BuildMenuRegistrations {
 
     private BuildMenuRegistrations() {
