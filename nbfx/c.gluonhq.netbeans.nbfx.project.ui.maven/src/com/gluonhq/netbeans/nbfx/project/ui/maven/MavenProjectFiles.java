@@ -39,6 +39,46 @@ final class MavenProjectFiles {
         return element == null ? null : element.getTextContent().trim();
     }
 
+    /** The value of the POM {@code <properties>} entry {@code name}, or {@code null}. */
+    static String pomProperty(FileObject dir, String name) {
+        Element project = projectElement(dir);
+        if (project == null) {
+            return null;
+        }
+        Element properties = child(project, "properties");
+        if (properties == null) {
+            return null;
+        }
+        Element element = child(properties, name);
+        return element == null ? null : element.getTextContent().trim();
+    }
+
+    /** Sets the POM {@code <properties>} entry {@code name}, adding it when absent. */
+    static void setPomProperty(FileObject dir, String name, String value) {
+        FileObject file = dir.getFileObject("pom.xml");
+        if (file == null || !file.isData()) {
+            return;
+        }
+        try (InputStream in = file.getInputStream()) {
+            Document document = newDocumentBuilder().parse(in);
+            Element project = document.getDocumentElement();
+            Element properties = child(project, "properties");
+            if (properties == null) {
+                properties = document.createElementNS(POM_NS, "properties");
+                project.appendChild(properties);
+            }
+            Element element = child(properties, name);
+            if (element == null) {
+                element = document.createElementNS(POM_NS, name);
+                properties.appendChild(element);
+            }
+            element.setTextContent(value);
+            write(file, document);
+        } catch (Exception ex) {
+            Exceptions.printStackTrace(ex);
+        }
+    }
+
     /** Sets the text of the top-level {@code tag} in {@code pom.xml}, adding it when absent. */
     static void setPomEntry(FileObject dir, String tag, String value) {
         FileObject file = dir.getFileObject("pom.xml");
