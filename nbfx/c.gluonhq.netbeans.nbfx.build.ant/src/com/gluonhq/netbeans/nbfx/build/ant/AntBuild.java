@@ -43,11 +43,17 @@ final class AntBuild implements BuildExecution {
 
     private void run() {
         try {
+            File buildFile = dir.resolve("build.xml").toFile();
             Project project = new Project();
             project.setBaseDir(dir.toFile());
             project.init();
+            // Ant's Main sets these before parsing; ProjectHelper.configureProject does not, and the
+            // harness build files (projectized.xml) read ${ant.file} / ${ant.project.name} at load time.
+            project.setUserProperty("ant.file", buildFile.getAbsolutePath());
             project.addBuildListener(new Listener(output, cancelled));
-            ProjectHelper.configureProject(project, dir.resolve("build.xml").toFile());
+            ProjectHelper helper = ProjectHelper.getProjectHelper();
+            project.addReference(ProjectHelper.PROJECTHELPER_REFERENCE, helper);
+            helper.parse(project, buildFile);
             for (String target : targets) {
                 if (cancelled.get()) {
                     break;
@@ -112,6 +118,9 @@ final class AntBuild implements BuildExecution {
         @Override
         public void messageLogged(BuildEvent event) {
             check();
+            if (event.getPriority() > Project.MSG_INFO) {
+                return;
+            }
             String message = event.getMessage();
             if (message != null && !message.isBlank()) {
                 output.append(message + "\n");
