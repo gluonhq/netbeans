@@ -21,7 +21,7 @@ package com.gluonhq.netbeans.nbfx.project;
 import com.gluonhq.netbeans.nbfx.annotations.FxWizardRegistration;
 import com.gluonhq.netbeans.nbfx.api.ContentManager;
 import com.gluonhq.netbeans.nbfx.api.ErrorReporter;
-import com.gluonhq.netbeans.nbfx.api.file.FileSelectionContext;
+import com.gluonhq.netbeans.nbfx.api.actions.FxActionContext;
 import com.gluonhq.netbeans.nbfx.api.project.OpenProject;
 import com.gluonhq.netbeans.nbfx.api.project.ProjectRegistry;
 import com.gluonhq.netbeans.nbfx.wizard.FxWizard;
@@ -180,11 +180,9 @@ public final class NewFileWizard implements FxWizard {
     }
 
     private static String defaultFolder() {
-        FileSelectionContext selection = Lookup.getDefault().lookup(FileSelectionContext.class);
-        if (selection != null) {
-            List<FileObject> files = selection.selectedFiles().getValue();
-            if (files != null && !files.isEmpty()) {
-                FileObject first = files.get(0);
+        FxActionContext context = FxActionContext.getDefault();
+        if (context != null) {
+            for (FileObject first : context.lookupAll(FileObject.class)) {
                 FileObject directory = first.isFolder() ? first : first.getParent();
                 if (directory != null && FileUtil.toFile(directory) != null) {
                     return FileUtil.toFile(directory).getAbsolutePath();
