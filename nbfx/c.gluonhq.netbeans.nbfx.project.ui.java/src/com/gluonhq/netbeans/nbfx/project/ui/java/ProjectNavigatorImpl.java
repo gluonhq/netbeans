@@ -4,6 +4,7 @@ import com.gluonhq.netbeans.nbfx.annotations.FxViewLocation;
 import com.gluonhq.netbeans.nbfx.annotations.FxViewRegistration;
 import com.gluonhq.netbeans.nbfx.api.NavigatorProvider;
 import com.gluonhq.netbeans.nbfx.api.project.ProjectRegistry;
+import com.gluonhq.netbeans.nbfx.project.ui.api.ProjectDirectory;
 import com.gluonhq.netbeans.nbfx.project.ui.api.ProjectFile;
 import com.gluonhq.netbeans.nbfx.project.ui.api.ProjectKindProvider;
 import com.gluonhq.netbeans.nbfx.project.ui.api.ProjectKinds;
@@ -557,10 +558,15 @@ public class ProjectNavigatorImpl extends AbstractNavigatorProvider<ProjectEntry
             return false;
         }
         List<Project> subprojects = ProjectKinds.getSubprojects(project, kind);
-        LOG.info("Project kind: " + kind + ", found " + subprojects.size() + " subprojects");
+        List<ProjectDirectory> subprojectDirectories = subprojects.isEmpty()
+                ? kind.subprojectDirectories(project)
+                : List.of();
+        LOG.info("Project kind: " + kind + ", found " + subprojects.size()
+                + " subprojects and " + subprojectDirectories.size() + " subproject directories");
 
-        TreeItem<ProjectEntry> rootProjectNode = buildProjectNode(state, project, subprojects.isEmpty(), true);
-        if (!subprojects.isEmpty()) {
+        TreeItem<ProjectEntry> rootProjectNode = buildProjectNode(state, project,
+                subprojects.isEmpty() && subprojectDirectories.isEmpty(), true);
+        if (!subprojects.isEmpty() || !subprojectDirectories.isEmpty()) {
             ProjectEntry groupEntry = new ProjectEntry(project.getProjectDirectory(),
                     ProjectKinds.getSubprojectsGroupName(kind), ProjectEntry.Type.MODULES,
                     ProjectEntry.BADGE.MODULES_BADGE);
@@ -570,6 +576,10 @@ public class ProjectNavigatorImpl extends AbstractNavigatorProvider<ProjectEntry
                     List<TreeItem<ProjectEntry>> children = new ArrayList<>();
                     for (Project sub : subprojects) {
                         children.add(buildProjectNode(state, sub, true, false));
+                    }
+                    for (ProjectDirectory directory : subprojectDirectories) {
+                        children.add(new ProjectTreeItem(new ProjectEntry(directory.dir(), directory.name(),
+                                ProjectEntry.Type.DIRECTORY, ProjectEntry.BADGE.NO_BADGE)));
                     }
                     Platform.runLater(() -> addLazyChildren(state, groupNode, children));
                 }));

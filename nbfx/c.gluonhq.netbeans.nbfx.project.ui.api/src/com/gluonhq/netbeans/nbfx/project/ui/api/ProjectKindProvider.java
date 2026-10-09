@@ -32,6 +32,15 @@ public interface ProjectKindProvider {
         return List.of();
     }
 
+    /**
+     * Returns the project's subprojects that are not standalone NetBeans projects (for example
+     * Gradle subprojects), rendered as directory nodes under the subprojects group. Used when
+     * {@link #subprojects(Project)} is empty.
+     */
+    default List<ProjectDirectory> subprojectDirectories(Project project) {
+        return List.of();
+    }
+
     /** Returns the label of the subprojects group node, or {@code null} to use the generic label. */
     default String subprojectsGroupName() {
         return null;

@@ -1,5 +1,6 @@
 package com.gluonhq.netbeans.nbfx.project.ui.gradle;
 
+import com.gluonhq.netbeans.nbfx.project.ui.api.ProjectDirectory;
 import com.gluonhq.netbeans.nbfx.project.ui.api.ProjectFile;
 import com.gluonhq.netbeans.nbfx.project.ui.api.ProjectKindProvider;
 import java.io.BufferedReader;
@@ -57,15 +58,8 @@ public final class GradleProjectKindProvider implements ProjectKindProvider {
     @Override
     public List<Project> subprojects(Project project) {
         FileObject dir = project.getProjectDirectory();
-        Set<String> paths = new LinkedHashSet<>();
-        for (String settings : SETTINGS_FILES) {
-            FileObject file = dir.getFileObject(settings);
-            if (file != null && file.isData()) {
-                paths.addAll(parseIncludes(file));
-            }
-        }
         List<Project> result = new ArrayList<>();
-        for (String path : paths) {
+        for (String path : includePaths(dir)) {
             FileObject subDir = dir.getFileObject(path);
             if (subDir == null || !subDir.isFolder()) {
                 continue;
@@ -80,6 +74,30 @@ public final class GradleProjectKindProvider implements ProjectKindProvider {
             }
         }
         return result;
+    }
+
+    @Override
+    public List<ProjectDirectory> subprojectDirectories(Project project) {
+        FileObject dir = project.getProjectDirectory();
+        List<ProjectDirectory> result = new ArrayList<>();
+        for (String path : includePaths(dir)) {
+            FileObject subDir = dir.getFileObject(path);
+            if (subDir != null && subDir.isFolder()) {
+                result.add(new ProjectDirectory(subDir.getNameExt(), subDir));
+            }
+        }
+        return result;
+    }
+
+    private static Set<String> includePaths(FileObject dir) {
+        Set<String> paths = new LinkedHashSet<>();
+        for (String settings : SETTINGS_FILES) {
+            FileObject file = dir.getFileObject(settings);
+            if (file != null && file.isData()) {
+                paths.addAll(parseIncludes(file));
+            }
+        }
+        return paths;
     }
 
     @Override

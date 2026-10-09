@@ -39,7 +39,9 @@ public class ProjectTreeItem extends TreeItem<ProjectEntry> {
         this.isFolder = projectEntry.isFolder();
         FileObject fileObject = projectEntry.getFileObject();
         if (fileObject != null) {
-            if (projectEntry.getType() == ProjectEntry.Type.GROUP || projectEntry.getType() == ProjectEntry.Type.PACKAGE) {
+            if (projectEntry.getType() == ProjectEntry.Type.GROUP
+                    || projectEntry.getType() == ProjectEntry.Type.PACKAGE
+                    || projectEntry.getType() == ProjectEntry.Type.DIRECTORY) {
                 // Building the children scans the source root on disk (recursively, for a group), so
                 // it runs off the FX thread; only attaching the built nodes goes back to it. Marking
                 // main classes is scheduled after the children are attached, since it walks them.
@@ -56,7 +58,8 @@ public class ProjectTreeItem extends TreeItem<ProjectEntry> {
             if (projectEntry.getType() == ProjectEntry.Type.MODULES
                     || projectEntry.getType() == ProjectEntry.Type.GROUP
                     || projectEntry.getType() == ProjectEntry.Type.FILES
-                    || projectEntry.getType() == ProjectEntry.Type.LIBRARIES) {
+                    || projectEntry.getType() == ProjectEntry.Type.LIBRARIES
+                    || projectEntry.getType() == ProjectEntry.Type.DIRECTORY) {
                 expandedProperty().subscribe(expanded -> {
                     String iconName = expanded ? NavigatorIcons.FOLDER_OPEN_ICON : NavigatorIcons.FOLDER_CLOSE_ICON;
                     if (projectEntry.getBadge() != ProjectEntry.BADGE.NO_BADGE) {
@@ -219,6 +222,25 @@ public class ProjectTreeItem extends TreeItem<ProjectEntry> {
                         answer.add(new ProjectTreeItem(classFileEntry));
                     }
                 }
+                return answer;
+            }
+        } else if (projectEntry.getType() == ProjectEntry.Type.DIRECTORY) {
+            FileObject[] children = parent.getChildren();
+            if (children != null) {
+                ObservableList<ProjectTreeItem> answer = FXCollections.observableArrayList();
+                for (FileObject child : children) {
+                    if (PackageScanner.isIgnored(child)) {
+                        continue;
+                    }
+                    if (child.isFolder()) {
+                        answer.add(new ProjectTreeItem(new ProjectEntry(child, child.getNameExt(),
+                                ProjectEntry.Type.DIRECTORY)));
+                    } else {
+                        answer.add(new ProjectTreeItem(new ProjectEntry(child, child.getNameExt(),
+                                ProjectEntry.Type.FILE, ProjectEntry.BADGE.NO_BADGE, NavigatorIcons.getFileIconName(child))));
+                    }
+                }
+                answer.sort(treeItemComparator);
                 return answer;
             }
         }

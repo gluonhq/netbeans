@@ -15,7 +15,8 @@ public class ProjectEntry {
         FILES,
         FILE,
         LIBRARIES,
-        LIBRARY
+        LIBRARY,
+        DIRECTORY
     }
 
     public enum BADGE {
