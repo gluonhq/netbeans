@@ -19,7 +19,7 @@
 package com.gluonhq.netbeans.nbfx.run;
 
 import java.nio.file.Files;
-import com.gluonhq.netbeans.nbfx.project.ui.api.BuildAction;
+import com.gluonhq.netbeans.nbfx.project.ui.api.BuildCommands;
 import java.nio.file.Path;
 import java.util.List;
 import static org.junit.Assert.assertEquals;
@@ -54,9 +54,9 @@ public class BuildToolTest {
     public void mavenCommands() throws Exception {
         Path dir = Files.createTempDirectory("nbfx-maven");
         Files.writeString(dir.resolve("pom.xml"), "<project/>");
-        assertEquals(List.of("mvn", "package"), BuildTool.MAVEN.commandLine(dir, BuildAction.BUILD));
-        assertEquals(List.of("mvn", "clean"), BuildTool.MAVEN.commandLine(dir, BuildAction.CLEAN));
-        assertEquals(List.of("mvn", "test"), BuildTool.MAVEN.commandLine(dir, BuildAction.TEST));
+        assertEquals(List.of("mvn", "package"), BuildTool.MAVEN.commandLine(dir, BuildCommands.BUILD));
+        assertEquals(List.of("mvn", "clean"), BuildTool.MAVEN.commandLine(dir, BuildCommands.CLEAN));
+        assertEquals(List.of("mvn", "test"), BuildTool.MAVEN.commandLine(dir, BuildCommands.TEST));
     }
 
     @Test
@@ -65,23 +65,23 @@ public class BuildToolTest {
         Files.writeString(dir.resolve("settings.gradle"), "rootProject.name='x'");
         Files.writeString(dir.resolve("gradlew"), "#!/bin/sh");
         assertEquals(List.of(dir.resolve("gradlew").toString(), "build"),
-                BuildTool.GRADLE.commandLine(dir, BuildAction.BUILD));
+                BuildTool.GRADLE.commandLine(dir, BuildCommands.BUILD));
     }
 
     @Test
     public void unknownHasNoCommand() {
-        assertEquals(null, BuildTool.UNKNOWN.commandLine(null, BuildAction.BUILD));
+        assertEquals(null, BuildTool.UNKNOWN.commandLine(null, BuildCommands.BUILD));
     }
 
     @Test
     public void antCommands() throws Exception {
         Path dir = Files.createTempDirectory("nbfx-ant");
         Files.writeString(dir.resolve("build.xml"), "<project/>");
-        assertEquals(List.of("ant", "jar"), BuildTool.ANT.commandLine(dir, BuildAction.BUILD));
-        assertEquals(List.of("ant", "clean", "jar"), BuildTool.ANT.commandLine(dir, BuildAction.CLEAN_BUILD));
-        assertEquals(List.of("ant", "clean"), BuildTool.ANT.commandLine(dir, BuildAction.CLEAN));
-        assertEquals(List.of("ant", "test"), BuildTool.ANT.commandLine(dir, BuildAction.TEST));
-        assertEquals(List.of("ant", "run"), BuildTool.ANT.commandLine(dir, BuildAction.RUN));
+        assertEquals(List.of("ant", "jar"), BuildTool.ANT.commandLine(dir, BuildCommands.BUILD));
+        assertEquals(List.of("ant", "clean", "jar"), BuildTool.ANT.commandLine(dir, BuildCommands.REBUILD));
+        assertEquals(List.of("ant", "clean"), BuildTool.ANT.commandLine(dir, BuildCommands.CLEAN));
+        assertEquals(List.of("ant", "test"), BuildTool.ANT.commandLine(dir, BuildCommands.TEST));
+        assertEquals(List.of("ant", "run"), BuildTool.ANT.commandLine(dir, BuildCommands.RUN));
     }
 
     @Test
@@ -90,10 +90,10 @@ public class BuildToolTest {
         Files.writeString(dir.resolve("build.xml"), "<project/>");
         Files.createDirectories(dir.resolve("nbproject"));
         Files.writeString(dir.resolve("nbproject").resolve("project.xml"), "<project/>");
-        assertEquals(List.of("ant", "build"), BuildTool.ANT.commandLine(dir, BuildAction.BUILD));
-        assertEquals(List.of("ant", "clean", "build"), BuildTool.ANT.commandLine(dir, BuildAction.CLEAN_BUILD));
-        assertEquals(List.of("ant", "clean"), BuildTool.ANT.commandLine(dir, BuildAction.CLEAN));
-        assertEquals(List.of("ant", "test-unit"), BuildTool.ANT.commandLine(dir, BuildAction.TEST));
-        assertEquals(List.of("ant", "run"), BuildTool.ANT.commandLine(dir, BuildAction.RUN));
+        assertEquals(List.of("ant", "build"), BuildTool.ANT.commandLine(dir, BuildCommands.BUILD));
+        assertEquals(List.of("ant", "clean", "build"), BuildTool.ANT.commandLine(dir, BuildCommands.REBUILD));
+        assertEquals(List.of("ant", "clean"), BuildTool.ANT.commandLine(dir, BuildCommands.CLEAN));
+        assertEquals(List.of("ant", "test-unit"), BuildTool.ANT.commandLine(dir, BuildCommands.TEST));
+        assertEquals(List.of("ant", "run"), BuildTool.ANT.commandLine(dir, BuildCommands.RUN));
     }
 }

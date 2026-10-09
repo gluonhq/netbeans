@@ -22,7 +22,7 @@ import com.gluonhq.netbeans.nbfx.api.actions.ActionIds;
 import com.gluonhq.netbeans.nbfx.api.actions.Command;
 import com.gluonhq.netbeans.nbfx.api.actions.CommandsProvider;
 import com.gluonhq.netbeans.nbfx.api.project.ProjectRegistry;
-import com.gluonhq.netbeans.nbfx.project.ui.api.BuildAction;
+import com.gluonhq.netbeans.nbfx.project.ui.api.BuildCommands;
 import java.util.Collection;
 import java.util.List;
 import org.openide.util.Lookup;
@@ -44,15 +44,15 @@ public final class BuildCommandsProvider implements CommandsProvider {
     public Collection<Command> createCommands() {
         return List.of(
                 new BuildCommand(projects, ActionIds.BUILD, message("BuildCommand.build"),
-                        BuildAction.BUILD),
+                        BuildCommands.BUILD),
                 new BuildCommand(projects, ActionIds.CLEAN_BUILD, message("BuildCommand.cleanBuild"),
-                        BuildAction.CLEAN_BUILD),
+                        BuildCommands.REBUILD),
                 new BuildCommand(projects, ActionIds.CLEAN, message("BuildCommand.clean"),
-                        BuildAction.CLEAN),
+                        BuildCommands.CLEAN),
                 new BuildCommand(projects, ActionIds.TEST, message("BuildCommand.test"),
-                        BuildAction.TEST),
+                        BuildCommands.TEST),
                 new BuildCommand(projects, ActionIds.RUN, message("BuildCommand.run"),
-                        BuildAction.RUN));
+                        BuildCommands.RUN));
     }
 
     private static String message(String key) {

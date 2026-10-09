@@ -1,7 +1,7 @@
 package com.gluonhq.netbeans.nbfx.project.ui.gradle;
 
-import com.gluonhq.netbeans.nbfx.project.ui.api.BuildAction;
 import com.gluonhq.netbeans.nbfx.project.ui.api.BuildActionProvider;
+import com.gluonhq.netbeans.nbfx.project.ui.api.BuildCommands;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -17,14 +17,24 @@ public final class GradleBuildActionProvider implements BuildActionProvider {
     }
 
     @Override
-    public List<String> commandLine(Path dir, BuildAction action) {
+    public String[] getSupportedActions() {
+        return new String[] {
+            BuildCommands.BUILD, BuildCommands.CLEAN, BuildCommands.REBUILD,
+            BuildCommands.RUN, BuildCommands.TEST, BuildCommands.JAVADOC
+        };
+    }
+
+    @Override
+    public List<String> commandLine(Path dir, String command) {
         String executable = executable(dir, "gradlew", "gradle");
-        return switch (action) {
-            case BUILD -> List.of(executable, "build");
-            case CLEAN_BUILD -> List.of(executable, "clean", "build");
-            case CLEAN -> List.of(executable, "clean");
-            case TEST -> List.of(executable, "test");
-            case RUN -> List.of(executable, "run");
+        return switch (command) {
+            case BuildCommands.BUILD -> List.of(executable, "build");
+            case BuildCommands.CLEAN -> List.of(executable, "clean");
+            case BuildCommands.REBUILD -> List.of(executable, "clean", "build");
+            case BuildCommands.TEST -> List.of(executable, "test");
+            case BuildCommands.RUN -> List.of(executable, "run");
+            case BuildCommands.JAVADOC -> List.of(executable, "javadoc");
+            default -> null;
         };
     }
 

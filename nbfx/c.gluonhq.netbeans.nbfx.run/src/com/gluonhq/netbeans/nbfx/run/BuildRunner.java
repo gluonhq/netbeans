@@ -21,7 +21,6 @@ package com.gluonhq.netbeans.nbfx.run;
 import com.gluonhq.netbeans.nbfx.api.progress.FxProgress;
 import com.gluonhq.netbeans.nbfx.output.FxConsole;
 import com.gluonhq.netbeans.nbfx.output.FxOutput;
-import com.gluonhq.netbeans.nbfx.project.ui.api.BuildAction;
 import com.gluonhq.netbeans.nbfx.project.ui.api.BuildActionProvider;
 import com.gluonhq.netbeans.nbfx.project.ui.api.ProjectKinds;
 import java.nio.file.Path;
@@ -54,7 +53,7 @@ final class BuildRunner {
     private BuildRunner() {
     }
 
-    static void run(Path dir, BuildAction action, String consoleName) {
+    static void run(Path dir, String command, String consoleName) {
         if (dir == null) {
             return;
         }
@@ -67,8 +66,8 @@ final class BuildRunner {
         console.clear();
         console.show();
 
-        List<String> command = command(dir, action);
-        if (command == null) {
+        List<String> commandLine = command(dir, command);
+        if (commandLine == null) {
             console.append(NbBundle.getMessage(BuildRunner.class, "BuildCommand.noTool") + "\n");
             return;
         }
@@ -83,7 +82,7 @@ final class BuildRunner {
                 }
             });
         }
-        ProcessRunner.run(command, dir, console, process::set, () -> {
+        ProcessRunner.run(commandLine, dir, console, process::set, () -> {
             if (progress != null) {
                 progress.finish();
             }
@@ -95,15 +94,15 @@ final class BuildRunner {
      * project at {@code dir} when there is one, otherwise the marker-file detected {@link BuildTool}.
      * This mirrors the original {@code ProjectAction} dispatching to the project's {@code ActionProvider}.
      */
-    private static List<String> command(Path dir, BuildAction action) {
+    private static List<String> command(Path dir, String command) {
         BuildActionProvider provider = providerFor(dir);
         if (provider != null) {
-            List<String> command = provider.commandLine(dir, action);
-            if (command != null) {
-                return command;
+            List<String> commandLine = provider.commandLine(dir, command);
+            if (commandLine != null) {
+                return commandLine;
             }
         }
-        return BuildTool.detect(dir).commandLine(dir, action);
+        return BuildTool.detect(dir).commandLine(dir, command);
     }
 
     private static BuildActionProvider providerFor(Path dir) {

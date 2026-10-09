@@ -18,15 +18,16 @@
  */
 package com.gluonhq.netbeans.nbfx.run;
 
-import com.gluonhq.netbeans.nbfx.project.ui.api.BuildAction;
+import com.gluonhq.netbeans.nbfx.project.ui.api.BuildCommands;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * A build tool, detected from a project's directory, and the command line to run a build action
- * with it.
+ * A build tool, detected from a project's directory, and the command line to run a build command
+ * with it. Used as a fallback when no project-type {@link
+ * com.gluonhq.netbeans.nbfx.project.ui.api.BuildActionProvider} matches the project.
  *
  * @since 1.0
  */
@@ -68,68 +69,71 @@ public enum BuildTool {
     }
 
     /**
-     * The command line to run {@code action} in {@code dir}, or {@code null} when this tool is
-     * {@link #UNKNOWN}. A project-local wrapper ({@code mvnw}/{@code gradlew}) is preferred over a
-     * tool on the {@code PATH}.
+     * The command line to run {@code command} (a {@link BuildCommands} id) in {@code dir}, or
+     * {@code null} when this tool is {@link #UNKNOWN} or does not support the command. A
+     * project-local wrapper ({@code mvnw}/{@code gradlew}) is preferred over a tool on the
+     * {@code PATH}.
      *
-     * @param dir    the project directory
-     * @param action the action to run
+     * @param dir     the project directory
+     * @param command the build command id
      * @return the command line, or {@code null}
      */
-    public List<String> commandLine(Path dir, BuildAction action) {
+    public List<String> commandLine(Path dir, String command) {
         return switch (this) {
-            case MAVEN -> maven(dir, action);
-            case GRADLE -> gradle(dir, action);
-            case ANT -> ant(dir, action);
+            case MAVEN -> maven(dir, command);
+            case GRADLE -> gradle(dir, command);
+            case ANT -> ant(dir, command);
             case UNKNOWN -> null;
         };
     }
 
-    private static List<String> maven(Path dir, BuildAction action) {
-        List<String> goals = switch (action) {
-            case BUILD -> List.of("package");
-            case CLEAN_BUILD -> List.of("clean", "package");
-            case CLEAN -> List.of("clean");
-            case TEST -> List.of("test");
-            case RUN -> List.of("compile", "exec:java");
+    private static List<String> maven(Path dir, String command) {
+        List<String> goals = switch (command) {
+            case BuildCommands.BUILD -> List.of("package");
+            case BuildCommands.CLEAN -> List.of("clean");
+            case BuildCommands.REBUILD -> List.of("clean", "package");
+            case BuildCommands.TEST -> List.of("test");
+            case BuildCommands.RUN -> List.of("compile", "exec:java");
+            case BuildCommands.JAVADOC -> List.of("javadoc:javadoc");
+            default -> null;
         };
-        return prepend(executable(dir, "mvnw", "mvn"), goals);
+        return goals == null ? null : prepend(executable(dir, "mvnw", "mvn"), goals);
     }
 
-    private static List<String> gradle(Path dir, BuildAction action) {
+    private static List<String> gradle(Path dir, String command) {
         String executable = executable(dir, "gradlew", "gradle");
-        return switch (action) {
-            case BUILD -> List.of(executable, "build");
-            case CLEAN_BUILD -> List.of(executable, "clean", "build");
-            case CLEAN -> List.of(executable, "clean");
-            case TEST -> List.of(executable, "test");
-            case RUN -> List.of(executable, "run");
+        return switch (command) {
+            case BuildCommands.BUILD -> List.of(executable, "build");
+            case BuildCommands.CLEAN -> List.of(executable, "clean");
+            case BuildCommands.REBUILD -> List.of(executable, "clean", "build");
+            case BuildCommands.TEST -> List.of(executable, "test");
+            case BuildCommands.RUN -> List.of(executable, "run");
+            case BuildCommands.JAVADOC -> List.of(executable, "javadoc");
+            default -> null;
         };
     }
 
-    /**
-     * Ant targets, mirroring the original NetBeans {@code ModuleActions}: a NetBeans module
-     * (apisupport) project — recognised by its {@code nbproject/project.xml} — uses the harness
-     * targets ({@code build}, {@code clean}, {@code test-unit}, {@code run}), while a plain Ant
-     * project uses the conventional {@code jar}/{@code test}/{@code run}.
-     */
-    private static List<String> ant(Path dir, BuildAction action) {
+    private static List<String> ant(Path dir, String command) {
         boolean netbeansModule = Files.isRegularFile(dir.resolve("nbproject").resolve("project.xml"));
         if (netbeansModule) {
-            return switch (action) {
-                case BUILD -> List.of("ant", "build");
-                case CLEAN_BUILD -> List.of("ant", "clean", "build");
-                case CLEAN -> List.of("ant", "clean");
-                case TEST -> List.of("ant", "test-unit");
-                case RUN -> List.of("ant", "run");
+            return switch (command) {
+                case BuildCommands.BUILD -> List.of("ant", "build");
+                case BuildCommands.CLEAN -> List.of("ant", "clean");
+                case BuildCommands.REBUILD -> List.of("ant", "clean", "build");
+                case BuildCommands.TEST -> List.of("ant", "test-unit");
+                case BuildCommands.RUN -> List.of("ant", "run");
+                case BuildCommands.JAVADOC -> List.of("ant", "javadoc-nb");
+                default -> null;
             };
         }
-        return switch (action) {
-            case BUILD -> List.of("ant", "jar");
-            case CLEAN_BUILD -> List.of("ant", "clean", "jar");
-            case CLEAN -> List.of("ant", "clean");
-            case TEST -> List.of("ant", "test");
-            case RUN -> List.of("ant", "run");
+        return switch (command) {
+            case BuildCommands.BUILD -> List.of("ant", "jar");
+            case BuildCommands.CLEAN -> List.of("ant", "clean");
+            case BuildCommands.REBUILD -> List.of("ant", "clean", "jar");
+            case BuildCommands.TEST -> List.of("ant", "test");
+            case BuildCommands.RUN -> List.of("ant", "run");
+            case BuildCommands.JAVADOC -> List.of("ant", "javadoc");
+            default -> null;
         };
     }
 

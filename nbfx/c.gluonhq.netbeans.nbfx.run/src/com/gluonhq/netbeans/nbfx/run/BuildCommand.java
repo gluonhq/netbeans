@@ -20,7 +20,6 @@ package com.gluonhq.netbeans.nbfx.run;
 
 import com.gluonhq.netbeans.nbfx.api.actions.Command;
 import com.gluonhq.netbeans.nbfx.api.project.OpenProject;
-import com.gluonhq.netbeans.nbfx.project.ui.api.BuildAction;
 import com.gluonhq.netbeans.nbfx.api.project.ProjectRegistry;
 import java.nio.file.Paths;
 import javafx.beans.binding.Bindings;
@@ -40,14 +39,14 @@ final class BuildCommand implements Command {
     private final ProjectRegistry projects;
     private final String id;
     private final String text;
-    private final BuildAction action;
+    private final String command;
     private final ReadOnlyBooleanWrapper disabled = new ReadOnlyBooleanWrapper(this, "disabled", true);
 
-    BuildCommand(ProjectRegistry projects, String id, String text, BuildAction action) {
+    BuildCommand(ProjectRegistry projects, String id, String text, String command) {
         this.projects = projects;
         this.id = id;
         this.text = text;
-        this.action = action;
+        this.command = command;
         if (projects != null) {
             disabled.bind(Bindings.createBooleanBinding(
                     () -> projects.selectedProjectProperty().getValue() == null,
@@ -81,6 +80,6 @@ final class BuildCommand implements Command {
         if (project == null) {
             return;
         }
-        BuildRunner.run(Paths.get(project.getPath()), action, text + " " + project.getDisplayName());
+        BuildRunner.run(Paths.get(project.getPath()), command, text + " " + project.getDisplayName());
     }
 }

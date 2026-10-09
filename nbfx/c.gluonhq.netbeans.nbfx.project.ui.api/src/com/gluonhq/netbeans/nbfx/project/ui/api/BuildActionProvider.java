@@ -4,13 +4,12 @@ import java.nio.file.Path;
 import java.util.List;
 
 /**
- * Service provider interface for the build/run commands of a project type. Mirrors the original
- * {@code org.netbeans.spi.project.ActionProvider}: the build actions are contributed by the
- * project-type module, not hard-coded in the build runner.
+ * Service provider interface for the build/run commands of a project type, mirroring the original
+ * {@code org.netbeans.spi.project.ActionProvider}: a project type declares the commands it supports
+ * and how to run them, instead of the build runner hard-coding the tool.
  *
  * <p>Register implementations with {@code @ServiceProvider(service = BuildActionProvider.class)}.
- * The {@code projectTypeId} matches the id of the project's
- * {@link ProjectKindProvider}.</p>
+ * The {@code projectTypeId} matches the id of the project's {@link ProjectKindProvider}.</p>
  *
  * @since 1.0
  */
@@ -20,8 +19,22 @@ public interface BuildActionProvider {
     String projectTypeId();
 
     /**
-     * The command line to run {@code action} in {@code dir}, or {@code null} when this provider does
-     * not support the action.
+     * The commands this provider supports, from the constants in {@link BuildCommands}. Mirrors
+     * {@code ActionProvider.getSupportedActions()}.
      */
-    List<String> commandLine(Path dir, BuildAction action);
+    String[] getSupportedActions();
+
+    /**
+     * Whether {@code command} can be invoked. Mirrors {@code ActionProvider.isActionEnabled()};
+     * defaults to {@code true} for any supported command.
+     */
+    default boolean isActionEnabled(String command) {
+        return true;
+    }
+
+    /**
+     * The command line to run {@code command} in {@code dir}, or {@code null} when this provider does
+     * not support it.
+     */
+    List<String> commandLine(Path dir, String command);
 }

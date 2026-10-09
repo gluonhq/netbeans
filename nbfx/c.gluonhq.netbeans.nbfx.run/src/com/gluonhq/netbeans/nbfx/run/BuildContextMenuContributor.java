@@ -19,7 +19,7 @@
 package com.gluonhq.netbeans.nbfx.run;
 
 import com.gluonhq.netbeans.nbfx.api.actions.FileContextMenuContributor;
-import com.gluonhq.netbeans.nbfx.project.ui.api.BuildAction;
+import com.gluonhq.netbeans.nbfx.project.ui.api.BuildCommands;
 import java.io.File;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -57,20 +57,20 @@ public final class BuildContextMenuContributor implements FileContextMenuContrib
             }
             String base = folder.getName();
             List<MenuItem> items = new ArrayList<>(5);
-            items.add(item("BuildCommand.build", dir, BuildAction.BUILD, base));
-            items.add(item("BuildCommand.cleanBuild", dir, BuildAction.CLEAN_BUILD, base));
-            items.add(item("BuildCommand.clean", dir, BuildAction.CLEAN, base));
-            items.add(item("BuildCommand.test", dir, BuildAction.TEST, base));
-            items.add(item("BuildCommand.run", dir, BuildAction.RUN, base));
+            items.add(item("BuildCommand.build", dir, BuildCommands.BUILD, base));
+            items.add(item("BuildCommand.cleanBuild", dir, BuildCommands.REBUILD, base));
+            items.add(item("BuildCommand.clean", dir, BuildCommands.CLEAN, base));
+            items.add(item("BuildCommand.test", dir, BuildCommands.TEST, base));
+            items.add(item("BuildCommand.run", dir, BuildCommands.RUN, base));
             return items;
         }
         return List.of();
     }
 
-    private MenuItem item(String key, Path dir, BuildAction action, String base) {
+    private MenuItem item(String key, Path dir, String command, String base) {
         String text = NbBundle.getMessage(BuildContextMenuContributor.class, key);
         MenuItem item = new MenuItem(text);
-        item.setOnAction(event -> BuildRunner.run(dir, action, text + " " + base));
+        item.setOnAction(event -> BuildRunner.run(dir, command, text + " " + base));
         return item;
     }
 }

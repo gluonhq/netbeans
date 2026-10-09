@@ -1,7 +1,7 @@
 package com.gluonhq.netbeans.nbfx.project.ui.maven;
 
-import com.gluonhq.netbeans.nbfx.project.ui.api.BuildAction;
 import com.gluonhq.netbeans.nbfx.project.ui.api.BuildActionProvider;
+import com.gluonhq.netbeans.nbfx.project.ui.api.BuildCommands;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -18,18 +18,31 @@ public final class MavenBuildActionProvider implements BuildActionProvider {
     }
 
     @Override
-    public List<String> commandLine(Path dir, BuildAction action) {
-        List<String> goals = switch (action) {
-            case BUILD -> List.of("package");
-            case CLEAN_BUILD -> List.of("clean", "package");
-            case CLEAN -> List.of("clean");
-            case TEST -> List.of("test");
-            case RUN -> List.of("compile", "exec:java");
+    public String[] getSupportedActions() {
+        return new String[] {
+            BuildCommands.BUILD, BuildCommands.CLEAN, BuildCommands.REBUILD,
+            BuildCommands.RUN, BuildCommands.TEST, BuildCommands.JAVADOC
         };
-        List<String> command = new ArrayList<>(goals.size() + 1);
-        command.add(executable(dir, "mvnw", "mvn"));
-        command.addAll(goals);
-        return List.copyOf(command);
+    }
+
+    @Override
+    public List<String> commandLine(Path dir, String command) {
+        List<String> goals = switch (command) {
+            case BuildCommands.BUILD -> List.of("package");
+            case BuildCommands.CLEAN -> List.of("clean");
+            case BuildCommands.REBUILD -> List.of("clean", "package");
+            case BuildCommands.TEST -> List.of("test");
+            case BuildCommands.RUN -> List.of("compile", "exec:java");
+            case BuildCommands.JAVADOC -> List.of("javadoc:javadoc");
+            default -> null;
+        };
+        if (goals == null) {
+            return null;
+        }
+        List<String> line = new ArrayList<>(goals.size() + 1);
+        line.add(executable(dir, "mvnw", "mvn"));
+        line.addAll(goals);
+        return List.copyOf(line);
     }
 
     private static String executable(Path dir, String wrapper, String fallback) {
