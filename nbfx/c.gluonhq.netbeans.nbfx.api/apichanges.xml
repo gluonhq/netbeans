@@ -38,6 +38,54 @@
             </description>
             <class package="com.gluonhq.netbeans.nbfx.api.actions" name="KeyMap"/>
         </change>
+        <change id="view.provider.lookup">
+            <api name="netbeansfx_api"/>
+            <summary>ViewProvider is a Lookup.Provider.</summary>
+            <version major="1" minor="0"/>
+            <date day="10" month="10" year="2026"/>
+            <author login="sven"/>
+            <compatibility addition="yes" semantic="compatible"/>
+            <description>
+                <code>ViewProvider</code> now extends <code>Lookup.Provider</code> and adds a default
+                <code>getLookup()</code> returning <code>Lookup.EMPTY</code>, so the active view's
+                lookup can be published as the global action context (the nbfx replacement for the
+                activated <code>TopComponent</code>'s lookup). Existing implementations are
+                unaffected; the default is empty.
+            </description>
+            <class package="com.gluonhq.netbeans.nbfx.api.view" name="ViewProvider"/>
+        </change>
+        <change id="editor.document.lookup">
+            <api name="netbeansfx_api"/>
+            <summary>EditorDocument is a Lookup.Provider.</summary>
+            <version major="1" minor="0"/>
+            <date day="10" month="10" year="2026"/>
+            <author login="sven"/>
+            <compatibility addition="yes" semantic="compatible"/>
+            <description>
+                <code>EditorDocument</code> now extends <code>Lookup.Provider</code> and adds a
+                default <code>getLookup()</code> carrying the document and its file, so the active
+                editor's lookup can be published as the global action context (the nbfx replacement
+                for the editor <code>TopComponent</code>'s lookup). Existing implementations are
+                unaffected.
+            </description>
+            <class package="com.gluonhq.netbeans.nbfx.api.editor" name="EditorDocument"/>
+        </change>
+        <change id="file.selection.context.focus-only">
+            <api name="netbeansfx_api"/>
+            <summary>FileSelectionContext keeps only the navigator focus signal.</summary>
+            <version major="1" minor="0"/>
+            <date day="10" month="10" year="2026"/>
+            <author login="sven"/>
+            <compatibility deletion="yes" semantic="incompatible"/>
+            <description>
+                Removes <code>FileSelectionContext.selectedFiles()</code> and
+                <code>setSelectedFiles(List)</code>. The navigator selection is now published by each
+                navigator through its own <code>ViewProvider.getLookup()</code>, since the global
+                action context follows the active component; only the navigator-focused signal, which
+                is shell state rather than selection, remains. Under development until the MVP freeze.
+            </description>
+            <class package="com.gluonhq.netbeans.nbfx.api.file" name="FileSelectionContext"/>
+        </change>
     </changes>
     <htmlcontents>
         <head>

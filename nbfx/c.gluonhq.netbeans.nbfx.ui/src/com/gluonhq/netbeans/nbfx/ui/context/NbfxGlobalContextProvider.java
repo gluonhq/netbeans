@@ -2,85 +2,107 @@ package com.gluonhq.netbeans.nbfx.ui.context;
 
 import com.gluonhq.netbeans.nbfx.api.editor.EditorContext;
 import com.gluonhq.netbeans.nbfx.api.editor.EditorDocument;
-import com.gluonhq.netbeans.nbfx.api.file.FileSelectionContext;
+import com.gluonhq.netbeans.nbfx.api.project.OpenProject;
 import com.gluonhq.netbeans.nbfx.api.view.ViewProvider;
 import com.gluonhq.netbeans.nbfx.api.view.ViewSelectionContext;
 
-import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.openide.filesystems.FileObject;
 import org.openide.util.ContextGlobalProvider;
 import org.openide.util.Lookup;
-import org.openide.util.lookup.AbstractLookup;
-import org.openide.util.lookup.InstanceContent;
+import org.openide.util.lookup.Lookups;
 import org.openide.util.lookup.ServiceProvider;
 
 /**
- * Feeds the nbfx selection into the NetBeans global context
+ * Feeds the active nbfx component's lookup into the NetBeans global context
  * ({@link org.openide.util.Utilities#actionsGlobalContext()}).
  * <p>
- * This mirrors the Swing {@code GlobalActionContextImpl}: where that one reads the activated
- * {@code TopComponent}, this one reads the active nbfx view and the shared selection contexts. The
- * entries are the raw selection - the selected {@link FileObject}s, the active {@link EditorDocument}
- * and the active {@link ViewProvider} - never resolved domain objects: those are produced on demand by
- * per-domain facades (for example {@code ProjectContext}).
+ * This mirrors the Swing {@code GlobalActionContextImpl}: where that one proxies the activated
+ * {@code TopComponent}'s lookup and re-resolves it when the activation changes, this one follows the
+ * active nbfx view or editor document. The context is a stable {@link Lookups#proxy proxy} - never
+ * rebuilt, so the {@code Lookup.Result}s consumers hold keep firing - whose delegate is the active
+ * component's {@link Lookup}:
+ * <ul>
+ *   <li>a view tab contributes {@link ViewProvider#getLookup()}; a navigator thereby publishes its
+ *       own selection, so two navigators never answer for each other;</li>
+ *   <li>an editor tab contributes the {@link EditorDocument}'s lookup (the document and its file);</li>
+ *   <li>a view that presents nothing of its own leaves the context on the last selection-bearing
+ *       component (the shell's fallback), so activating Properties or the Output window does not blank
+ *       the global selection.</li>
+ * </ul>
  * <p>
  * {@code Utilities.actionsGlobalContext()} uses a single {@code ContextGlobalProvider}; nbfx registers
  * this one so the global context reflects the JavaFX frontend rather than the hidden Swing window. The
- * explicit {@code position} makes {@code Lookup.getDefault()} return this provider before the
- * platform's {@code GlobalActionContextImpl} (which has no position and is therefore ordered last).
+ * explicit {@code position} makes {@code Lookup.getDefault()} pick this one over the swing
+ * {@code GlobalActionContextImpl}.
  */
-@ServiceProvider(service = ContextGlobalProvider.class, position = 100)
+@ServiceProvider(service = ContextGlobalProvider.class)
 public final class NbfxGlobalContextProvider implements ContextGlobalProvider {
+
+    /** The context is a stable proxy; this is the lookup it currently delegates to. */
+    private final AtomicReference<Lookup> active = new AtomicReference<>(Lookup.EMPTY);
+
+    /**
+     * The last active component that carried a selection. A follower view that exposes nothing of its
+     * own leaves the context here instead of blanking it (the shell's fallback).
+     */
+    private final AtomicReference<Lookup> lastSelection = new AtomicReference<>(Lookup.EMPTY);
 
     @Override
     public Lookup createGlobalContext() {
-        InstanceContent content = new InstanceContent();
-        AbstractLookup lookup = new AbstractLookup(content);
-
-        FileSelectionContext files = Lookup.getDefault().lookup(FileSelectionContext.class);
-        if (files != null) {
-            AtomicReference<List<FileObject>> current = new AtomicReference<>(List.of());
-            files.selectedFiles().subscribe(selected -> {
-                List<FileObject> now = selected == null ? List.of() : selected;
-                for (FileObject file : current.getAndSet(now)) {
-                    content.remove(file);
-                }
-                for (FileObject file : now) {
-                    content.add(file);
-                }
-            });
-        }
-
-        EditorContext editors = Lookup.getDefault().lookup(EditorContext.class);
-        if (editors != null) {
-            AtomicReference<EditorDocument> current = new AtomicReference<>();
-            editors.activeDocumentProperty().subscribe(document -> {
-                EditorDocument old = current.getAndSet(document);
-                if (old != null) {
-                    content.remove(old);
-                }
-                if (document != null) {
-                    content.add(document);
-                }
-            });
-        }
-
         ViewSelectionContext views = Lookup.getDefault().lookup(ViewSelectionContext.class);
+        EditorContext editors = Lookup.getDefault().lookup(EditorContext.class);
+        // A stable proxy: it delegates to whatever the active component's lookup currently is, and
+        // re-resolves (firing LookupEvents) whenever we publish a new one.
+        Lookup proxy = Lookups.proxy(active::get);
+        Runnable publish = () -> {
+            ViewProvider view = views == null ? null : views.activeView().getValue();
+            EditorDocument document = editors == null ? null : editors.activeDocumentProperty().getValue();
+            active.set(computeActive(view, document));
+            // Forces the proxy to re-check its delegate and fire to its listeners (SimpleProxyLookup
+            // resolves lazily, exactly like Swing pokes its proxy after an activation change).
+            proxy.lookup(Object.class);
+        };
         if (views != null) {
-            AtomicReference<ViewProvider> current = new AtomicReference<>();
-            views.activeView().subscribe(view -> {
-                ViewProvider old = current.getAndSet(view);
-                if (old != null) {
-                    content.remove(old);
-                }
-                if (view != null) {
-                    content.add(view);
-                }
-            });
+            views.activeView().subscribe(view -> publish.run());
         }
+        if (editors != null) {
+            editors.activeDocumentProperty().subscribe(document -> publish.run());
+        }
+        publish.run();
+        return proxy;
+    }
 
-        return lookup;
+    /**
+     * The lookup the global context should delegate to right now: the active view's lookup when it
+     * carries a selection of its own; otherwise the last selection-bearing component (so a follower
+     * view keeps the previous file/editor); otherwise the active editor document.
+     */
+    private Lookup computeActive(ViewProvider view, EditorDocument document) {
+        Lookup candidate = view == null ? null : view.getLookup();
+        if (!hasSelection(candidate)) {
+            candidate = lastSelection.get();
+            if (!hasSelection(candidate) && document != null) {
+                candidate = document.getLookup();
+            }
+        }
+        if (hasSelection(candidate)) {
+            lastSelection.set(candidate);
+            return candidate;
+        }
+        return Lookup.EMPTY;
+    }
+
+    /**
+     * Whether {@code lookup} carries an nbfx selection (a file, a document, a project or a view). A
+     * follower view that exposes none of these leaves the context on the previous component.
+     */
+    private static boolean hasSelection(Lookup lookup) {
+        return lookup != null
+                && (lookup.lookup(FileObject.class) != null
+                        || lookup.lookup(EditorDocument.class) != null
+                        || lookup.lookup(OpenProject.class) != null
+                        || lookup.lookup(ViewProvider.class) != null);
     }
 }

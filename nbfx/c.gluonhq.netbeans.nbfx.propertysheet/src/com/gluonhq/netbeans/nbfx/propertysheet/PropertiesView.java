@@ -3,7 +3,6 @@ package com.gluonhq.netbeans.nbfx.propertysheet;
 import com.gluonhq.netbeans.nbfx.annotations.FxActionReference;
 import com.gluonhq.netbeans.nbfx.annotations.FxViewLocation;
 import com.gluonhq.netbeans.nbfx.annotations.FxViewRegistration;
-import com.gluonhq.netbeans.nbfx.api.NavigatorProvider;
 import com.gluonhq.netbeans.nbfx.api.actions.ActionIds;
 import com.gluonhq.netbeans.nbfx.api.actions.FxActionContext;
 import com.gluonhq.netbeans.nbfx.api.editor.EditorDocument;
@@ -51,16 +50,14 @@ public final class PropertiesView implements ViewProvider {
     }
 
     /**
-     * Picks the object whose properties are shown: from a navigator view the selected file or project,
-     * otherwise the active editor document (falling back to the file or project).
+     * Picks the object whose properties are shown from the active component's lookup: the active
+     * editor document, else the file or project selected in a navigator. The global context now
+     * follows the active component (§22), so no {@code instanceof NavigatorProvider} precedence is
+     * needed: an editor contributes its document, a navigator its selected file.
      */
     private void updateContext(FxActionContext context) {
-        boolean fromNavigator = context.lookup(ViewProvider.class) instanceof NavigatorProvider;
-        Object selected = fromNavigator
-                ? firstNonNull(context.lookup(FileObject.class), context.lookup(OpenProject.class),
-                        context.lookup(EditorDocument.class))
-                : firstNonNull(context.lookup(EditorDocument.class), context.lookup(FileObject.class),
-                        context.lookup(OpenProject.class));
+        Object selected = firstNonNull(context.lookup(EditorDocument.class), context.lookup(FileObject.class),
+                context.lookup(OpenProject.class));
         sheet.setContext(selected);
     }
 

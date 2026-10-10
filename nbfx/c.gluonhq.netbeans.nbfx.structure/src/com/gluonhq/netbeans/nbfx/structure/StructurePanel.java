@@ -19,8 +19,6 @@
 package com.gluonhq.netbeans.nbfx.structure;
 
 import com.gluonhq.netbeans.nbfx.api.actions.FxActionContext;
-import com.gluonhq.netbeans.nbfx.api.editor.EditorDocument;
-import com.gluonhq.netbeans.nbfx.api.view.ViewProvider;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -31,7 +29,6 @@ import javafx.scene.layout.StackPane;
 import javafx.util.StringConverter;
 import org.openide.filesystems.FileObject;
 import org.openide.util.Lookup;
-import org.openide.util.LookupListener;
 import org.openide.util.NbBundle;
 
 /**
@@ -71,10 +68,9 @@ final class StructurePanel extends BorderPane {
 
         FxActionContext context = FxActionContext.getDefault();
         if (context != null) {
-            LookupListener listener = event -> update(context);
-            for (Class<?> type : List.of(FileObject.class, EditorDocument.class, ViewProvider.class)) {
-                context.lookupResult(type).addLookupListener(listener);
-            }
+            // The global context follows the active component (§22): the file it carries is all that
+            // decides the content type, so a single FileObject result is enough.
+            context.lookupResult(FileObject.class).addLookupListener(event -> update(context));
             update(context);
         }
     }

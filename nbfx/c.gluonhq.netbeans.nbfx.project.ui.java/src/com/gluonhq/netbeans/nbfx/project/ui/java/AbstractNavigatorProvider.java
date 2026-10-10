@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Logger;
 
 import javafx.animation.PauseTransition;
@@ -24,6 +25,9 @@ import javafx.util.Duration;
 import org.openide.filesystems.FileChangeListener;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
+import org.openide.util.Lookup;
+import org.openide.util.lookup.AbstractLookup;
+import org.openide.util.lookup.InstanceContent;
 
 /**
  * Shared base for the two {@link NavigatorProvider} implementations: the logical Project view
@@ -46,6 +50,9 @@ abstract class AbstractNavigatorProvider<T> implements NavigatorProvider {
     private static final Logger BASE_LOG = Logger.getLogger(AbstractNavigatorProvider.class.getName());
 
     protected TreeView<T> view;
+
+    /** The lookup published as the global action context while this navigator is the active view. */
+    private Lookup lookup;
 
     /**
      * The state of every project this view knows about, keyed by the project root's path and kept in
@@ -204,6 +211,41 @@ abstract class AbstractNavigatorProvider<T> implements NavigatorProvider {
             result.add(state.root());
         }
         return result;
+    }
+
+    /**
+     * The lookup published as the global action context while this navigator is the active view: the
+     * navigator itself (so the file actions that require a view stay enabled) together with the files
+     * of its current selection. It is a stable lookup whose contents follow {@link #selectedFiles()},
+     * so two navigators answer for their own selection only and never for each other's.
+     */
+    @Override
+    public Lookup getLookup() {
+        if (lookup == null) {
+            InstanceContent content = new InstanceContent();
+            content.add(this);
+            AtomicReference<List<FileObject>> current = new AtomicReference<>(List.of());
+            List<FileObject> initial = selectedFiles().getValue();
+            if (initial != null && !initial.isEmpty()) {
+                current.set(List.copyOf(initial));
+                initial.forEach(content::add);
+            }
+            selectedFiles().subscribe(files -> {
+                List<FileObject> next = files == null ? List.of() : List.copyOf(files);
+                for (FileObject old : current.getAndSet(next)) {
+                    if (!next.contains(old)) {
+                        content.remove(old);
+                    }
+                }
+                for (FileObject file : next) {
+                    if (file != null) {
+                        content.add(file);
+                    }
+                }
+            });
+            lookup = new AbstractLookup(content);
+        }
+        return lookup;
     }
 
     /** Whether this view currently knows about at least one project. */

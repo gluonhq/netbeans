@@ -1,6 +1,7 @@
 package com.gluonhq.netbeans.nbfx.api.view;
 
 import javafx.scene.Node;
+import org.openide.util.Lookup;
 
 /**
  * A tool view shown in its own tab: a navigator tree, a search result, a usages window...
@@ -11,8 +12,27 @@ import javafx.scene.Node;
  * this interface are resolved by that id when a layout is restored; views that are also
  * {@link com.gluonhq.netbeans.nbfx.api.NavigatorProvider navigators} are docked at start-up, the
  * others only appear when something calls {@link ViewManager#show(ViewProvider)}.
+ * <p>
+ * A view is a {@link Lookup.Provider}: when its tab is the active one, its {@link #getLookup() lookup}
+ * <em>is</em> the global action context (the nbfx replacement for the activated
+ * {@code TopComponent}'s lookup). A view whose content is a selection publishes that selection there
+ * (a navigator publishes its selected files); a view that presents nothing of its own may leave the
+ * lookup {@link Lookup#EMPTY empty}, in which case the shell keeps the last selection-bearing
+ * component's context.
  */
-public interface ViewProvider {
+public interface ViewProvider extends Lookup.Provider {
+
+    /**
+     * The lookup this view contributes to the global action context while its tab is active. Defaults
+     * to {@link Lookup#EMPTY}: a view that is not itself a selection must override this (a navigator
+     * returns a lookup over its selected files).
+     *
+     * @return this view's lookup, never {@code null}
+     */
+    @Override
+    default Lookup getLookup() {
+        return Lookup.EMPTY;
+    }
 
     /**
      * The stable identifier of this view, used to persist and restore its tab. Defaults to the

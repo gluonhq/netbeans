@@ -18,10 +18,7 @@
  */
 package com.gluonhq.netbeans.nbfx.structure;
 
-import com.gluonhq.netbeans.nbfx.api.NavigatorProvider;
 import com.gluonhq.netbeans.nbfx.api.actions.FxActionContext;
-import com.gluonhq.netbeans.nbfx.api.editor.EditorDocument;
-import com.gluonhq.netbeans.nbfx.api.view.ViewProvider;
 import javafx.scene.Node;
 import org.openide.filesystems.FileObject;
 
@@ -69,26 +66,16 @@ public interface FxStructurePanel {
     }
 
     /**
-     * The file whose structure should be shown for {@code context}: the navigator selection when a
-     * navigator is active, else the active editor's document, else the file in the context. Panels
-     * resolve their content through this so it matches the file the view was selected for, and so the
-     * view and the panels agree on which file is current.
+     * The file whose structure should be shown for {@code context}: the file the active component
+     * carries. The global context now follows the active component (§22), so this is simply the
+     * context's {@link FileObject} - the active editor document's file, or the file selected in the
+     * active navigator - with no precedence heuristic.
      *
      * @param context the global action context
      * @return the file to show, or {@code null} when the context carries none
      * @since 1.0
      */
     static FileObject selectedFile(FxActionContext context) {
-        if (context.lookup(ViewProvider.class) instanceof NavigatorProvider) {
-            FileObject file = context.lookup(FileObject.class);
-            if (file != null) {
-                return file;
-            }
-        }
-        EditorDocument document = context.lookup(EditorDocument.class);
-        if (document != null) {
-            return document.getFileObject();
-        }
         return context.lookup(FileObject.class);
     }
 }

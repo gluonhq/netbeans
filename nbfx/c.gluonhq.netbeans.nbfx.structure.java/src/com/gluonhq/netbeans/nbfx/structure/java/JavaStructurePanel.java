@@ -19,8 +19,6 @@
 package com.gluonhq.netbeans.nbfx.structure.java;
 
 import com.gluonhq.netbeans.nbfx.api.actions.FxActionContext;
-import com.gluonhq.netbeans.nbfx.api.editor.EditorDocument;
-import com.gluonhq.netbeans.nbfx.api.view.ViewProvider;
 import com.gluonhq.netbeans.nbfx.structure.FxStructurePanel;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.CompilationUnitTree;
@@ -77,11 +75,12 @@ public final class JavaStructurePanel implements FxStructurePanel {
     public void panelActivated(FxActionContext context) {
         if (subscriptions.isEmpty()) {
             listener = event -> refresh(context);
-            for (Class<?> type : List.of(FileObject.class, EditorDocument.class, ViewProvider.class)) {
-                Lookup.Result<?> result = context.lookupResult(type);
-                result.addLookupListener(listener);
-                subscriptions.add(result);
-            }
+            // The global context now follows the active component (§22), so the file it carries is
+            // the only thing that decides the members; a single FileObject result replaces the
+            // provisional three-type subscription.
+            Lookup.Result<?> result = context.lookupResult(FileObject.class);
+            result.addLookupListener(listener);
+            subscriptions.add(result);
         }
         refresh(context);
     }

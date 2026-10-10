@@ -152,9 +152,10 @@ public class JavaFXLaunchApp extends Application {
         providers = Lookup.getDefault().lookupAll(NavigatorProvider.class);
         LOG.fine("PROVIDERS = " + providers);
         // Publish the navigator-focused state so the file commands can track it (clipboard refresh).
+        // The navigator selection no longer needs publishing: each navigator exposes it through its
+        // own ViewProvider.getLookup(), which the global context follows (§22).
         treeFocused.subscribe(fileSelection::setNavigatorFocused);
         for (NavigatorProvider provider : providers) {
-            provider.selectedFiles().subscribe(fileSelection::setSelectedFiles);
             // A project's tree is built in the background and reported back through this callback,
             // which resolves the project from the loaded root: several can be loading at once.
             provider.setOnProjectLoaded(this::onProjectLoaded);
