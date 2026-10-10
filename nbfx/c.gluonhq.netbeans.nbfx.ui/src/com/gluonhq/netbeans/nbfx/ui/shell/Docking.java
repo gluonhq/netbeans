@@ -1,6 +1,7 @@
 package com.gluonhq.netbeans.nbfx.ui.shell;
 
 import com.gluonhq.netbeans.nbfx.api.view.DockLocation;
+import com.gluonhq.netbeans.nbfx.api.view.FxArea;
 import com.gluonhq.netbeans.nbfx.docking.DockArea;
 import com.gluonhq.netbeans.nbfx.docking.DockHost;
 import com.gluonhq.netbeans.nbfx.ui.shell.NbfxTabPane.PaneRole;
@@ -22,11 +23,14 @@ import javafx.scene.control.TabPane;
 public final class Docking implements DockHost<TabPane> {
 
     /**
-     * Default share of the window the navigator pane takes, next to the editor pane. Mirrors the
-     * Swing {@code explorer} mode weight (0.3); the {@code navigator}, {@code properties} and
-     * {@code output} modes dock their views at the same default proportions.
+     * Default share of the window the navigator pane takes, next to the editor pane - the
+     * {@link FxArea#EXPLORER explorer} area's weight, which mirrors the Swing {@code explorer} mode
+     * weight (0.3).
+     *
+     * @deprecated derive the share from {@link FxArea#EXPLORER} instead.
      */
-    public static final double DEFAULT_NAVIGATOR_SHARE = 0.3;
+    @Deprecated
+    public static final double DEFAULT_NAVIGATOR_SHARE = FxArea.EXPLORER.weight();
 
     private static DockArea<TabPane> area;
 
@@ -45,7 +49,7 @@ public final class Docking implements DockHost<TabPane> {
             }
             panes.put(role.name(), primary);
         }
-        List<Double> dividers = panes.size() == 2 ? List.of(DEFAULT_NAVIGATOR_SHARE) : List.of();
+        List<Double> dividers = panes.size() == 2 ? List.of(FxArea.EXPLORER.weight()) : List.of();
         area = new DockArea(new Docking(), panes, dividers);
         return area;
     }
@@ -62,10 +66,10 @@ public final class Docking implements DockHost<TabPane> {
 
     /**
      * The pane a view docked at {@code location} lives in: a permanent pane, the docked pane right
-     * below it, or the one along the bottom or the right of the whole area - the docked panes being created if
-     * there is none yet (a pane created here must receive a tab before the next pulse, or it removes
-     * itself again). Returns {@code null} without an area, or when the location's permanent pane is
-     * not in it.
+     * below it, or the one along the bottom or the right of the whole area - the docked panes being
+     * created if there is none yet (a pane created here must receive a tab before the next pulse, or
+     * it removes itself again). Returns {@code null} without an area, or when the location's permanent
+     * pane is not in it. Map an area to its pane with {@link #paneOf(FxArea) paneOf}.
      */
     public static NbfxTabPane paneAt(DockLocation location) {
         if (area == null) {
@@ -80,6 +84,11 @@ public final class Docking implements DockHost<TabPane> {
             case RIGHT -> area.edgePane(Side.RIGHT);
         };
         return (NbfxTabPane) pane;
+    }
+
+    /** The pane an {@link FxArea area} lives in; see {@link #paneAt(DockLocation)}. */
+    public static NbfxTabPane paneOf(FxArea area) {
+        return paneAt(area.location());
     }
 
     @Override
