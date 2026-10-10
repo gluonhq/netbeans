@@ -57,4 +57,30 @@ public @interface FxViewRegistration {
 
     /** Whether this view is a navigator docked at start-up. */
     boolean navigator() default false;
+
+    /**
+     * The id of the window area this view is docked into, mirroring the Swing window modes
+     * ({@code *.wsmode}); an empty string derives the area from {@link #location()}.
+     */
+    String area() default "";
+
+    /** Whether this view's tab is attached to its area when the window system starts up. */
+    boolean openAtStartup() default false;
+
+    /** How the view's tab and its state survive restarts, mirroring the Swing persistence types. */
+    FxPersistenceType persistenceType() default FxPersistenceType.ALWAYS;
+
+    /**
+     * The persistence behaviour of a view's tab.
+     *
+     * @since 1.0
+     */
+    enum FxPersistenceType {
+        /** The tab and its state are restored across every restart. */
+        ALWAYS,
+        /** The tab is never persisted; it closes with the session. */
+        NEVER,
+        /** The tab is persisted only while it is open when the session ends. */
+        ONLY_OPENED
+    }
 }

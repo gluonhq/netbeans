@@ -65,6 +65,11 @@ public class FxViewRegistrationProcessor extends LayerGeneratingProcessor {
             file.stringvalue("location", registration.location().name());
             file.intvalue("position", registration.position());
             file.boolvalue("navigator", registration.navigator());
+            if (!registration.area().isBlank()) {
+                file.stringvalue("area", registration.area());
+            }
+            file.boolvalue("openAtStartup", registration.openAtStartup());
+            file.stringvalue("persistenceType", registration.persistenceType().name());
             file.write();
         }
         return true;
