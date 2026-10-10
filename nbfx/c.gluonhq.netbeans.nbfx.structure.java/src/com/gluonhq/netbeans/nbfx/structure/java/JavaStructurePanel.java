@@ -20,12 +20,16 @@ package com.gluonhq.netbeans.nbfx.structure.java;
 
 import com.gluonhq.netbeans.nbfx.api.actions.FxActionContext;
 import com.gluonhq.netbeans.nbfx.api.editor.EditorDocument;
+import com.gluonhq.netbeans.nbfx.api.view.ViewProvider;
 import com.gluonhq.netbeans.nbfx.structure.FxStructurePanel;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
 import javafx.application.Platform;
 import javafx.scene.Node;
 import javafx.scene.control.TreeItem;
@@ -33,6 +37,8 @@ import javafx.scene.control.TreeView;
 import org.netbeans.api.java.source.ClasspathInfo;
 import org.netbeans.api.java.source.JavaSource;
 import org.openide.filesystems.FileObject;
+import org.openide.util.Lookup;
+import org.openide.util.LookupListener;
 import org.openide.util.NbBundle;
 import org.openide.util.RequestProcessor;
 import org.openide.util.lookup.ServiceProvider;
@@ -48,6 +54,9 @@ public final class JavaStructurePanel implements FxStructurePanel {
     private static final RequestProcessor RP = new RequestProcessor("nbfx-structure-java", 1, true, true);
 
     private final TreeView<String> tree = new TreeView<>();
+    private final List<Lookup.Result<?>> subscriptions = new ArrayList<>();
+    private LookupListener listener;
+    private FileObject shownFile;
 
     @Override
     public String getDisplayName() {
@@ -66,23 +75,46 @@ public final class JavaStructurePanel implements FxStructurePanel {
 
     @Override
     public void panelActivated(FxActionContext context) {
-        FileObject file = fileOf(context);
-        if (file == null) {
-            tree.setRoot(null);
-            return;
+        if (subscriptions.isEmpty()) {
+            listener = event -> refresh(context);
+            for (Class<?> type : List.of(FileObject.class, EditorDocument.class, ViewProvider.class)) {
+                Lookup.Result<?> result = context.lookupResult(type);
+                result.addLookupListener(listener);
+                subscriptions.add(result);
+            }
         }
-        RP.post(() -> {
-            TreeItem<String> root = build(file);
-            Platform.runLater(() -> tree.setRoot(root));
-        });
+        refresh(context);
     }
 
-    private static FileObject fileOf(FxActionContext context) {
-        EditorDocument document = context.lookup(EditorDocument.class);
-        if (document != null) {
-            return document.getFileObject();
+    @Override
+    public void panelDeactivated() {
+        for (Lookup.Result<?> result : subscriptions) {
+            result.removeLookupListener(listener);
         }
-        return context.lookup(FileObject.class);
+        subscriptions.clear();
+        listener = null;
+    }
+
+    /** Re-reads the file in {@code context}, rebuilding the tree only when it changed. */
+    private void refresh(FxActionContext context) {
+        FileObject file = FxStructurePanel.selectedFile(context);
+        if (Objects.equals(file, shownFile)) {
+            return;
+        }
+        shownFile = file;
+        if (file == null) {
+            setRoot(null);
+            return;
+        }
+        RP.post(() -> setRoot(build(file)));
+    }
+
+    private void setRoot(TreeItem<String> root) {
+        if (Platform.isFxApplicationThread()) {
+            tree.setRoot(root);
+        } else {
+            Platform.runLater(() -> tree.setRoot(root));
+        }
     }
 
     /** Parses {@code file} and builds the members tree; empty when it cannot be parsed. */

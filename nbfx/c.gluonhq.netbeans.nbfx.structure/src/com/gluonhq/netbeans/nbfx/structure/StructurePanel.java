@@ -18,7 +18,6 @@
  */
 package com.gluonhq.netbeans.nbfx.structure;
 
-import com.gluonhq.netbeans.nbfx.api.NavigatorProvider;
 import com.gluonhq.netbeans.nbfx.api.actions.FxActionContext;
 import com.gluonhq.netbeans.nbfx.api.editor.EditorDocument;
 import com.gluonhq.netbeans.nbfx.api.view.ViewProvider;
@@ -120,24 +119,10 @@ final class StructurePanel extends BorderPane {
         }
     }
 
+    /** The content type to show the structure for, or {@code null} when there is no file. */
     private static String contentTypeOf(FxActionContext context) {
-        FileObject file = selectedFile(context);
+        FileObject file = FxStructurePanel.selectedFile(context);
         return file == null ? null : file.getMIMEType();
-    }
-
-    /** The file to show the structure of: the navigator selection when a navigator is active, else the editor's. */
-    private static FileObject selectedFile(FxActionContext context) {
-        if (context.lookup(ViewProvider.class) instanceof NavigatorProvider) {
-            FileObject file = context.lookup(FileObject.class);
-            if (file != null) {
-                return file;
-            }
-        }
-        EditorDocument document = context.lookup(EditorDocument.class);
-        if (document != null) {
-            return document.getFileObject();
-        }
-        return context.lookup(FileObject.class);
     }
 
     private static List<FxStructurePanel> panelsFor(String contentType) {
