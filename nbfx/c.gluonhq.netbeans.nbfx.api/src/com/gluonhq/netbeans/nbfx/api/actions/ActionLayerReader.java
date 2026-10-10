@@ -68,6 +68,60 @@ public final class ActionLayerReader {
     }
 
     /**
+     * A nested menu folder: its {@link #displayName()}, {@link #position()} and {@link #folder()}.
+     *
+     * @param position       the position among the siblings, from the folder's {@code position} attribute
+     * @param separatorBefore whether the submenu asks for a separator before it
+     * @param displayName    the submenu's title, from its {@code displayName} attribute or folder name
+     * @param folder         the layer folder holding the submenu's contents
+     */
+    public record FxSubmenu(int position, boolean separatorBefore, String displayName, FileObject folder) {
+
+        static FxSubmenu of(FileObject folder) {
+            String displayName = folder.getAttribute("displayName") instanceof String name && !name.isBlank()
+                    ? name : folder.getName();
+            int position = folder.getAttribute("position") instanceof Integer p ? p : Integer.MAX_VALUE;
+            boolean separatorBefore = Boolean.TRUE.equals(folder.getAttribute("separatorBefore"));
+            return new FxSubmenu(position, separatorBefore, displayName, folder);
+        }
+    }
+
+    /**
+     * Reads the nested folders directly under {@code folder} that hold menu content (a data {@code .ref}
+     * file or another non-empty folder), ordered by position then display name. The parent folders are
+     * the shell's submenus.
+     *
+     * @param folder the surface folder (for example {@code NbFx/Menus/Window}); may be {@code null}
+     * @return the ordered submenu folders, never {@code null}
+     */
+    public static List<FxSubmenu> readSubmenus(FileObject folder) {
+        if (folder == null) {
+            return List.of();
+        }
+        List<FxSubmenu> submenus = new ArrayList<>();
+        for (FileObject child : folder.getChildren()) {
+            if (child.isFolder() && hasContent(child)) {
+                submenus.add(FxSubmenu.of(child));
+            }
+        }
+        submenus.sort(Comparator.comparingInt(FxSubmenu::position).thenComparing(FxSubmenu::displayName));
+        return List.copyOf(submenus);
+    }
+
+    /** Whether {@code folder} contains an action reference, directly or nested in a child folder. */
+    private static boolean hasContent(FileObject folder) {
+        for (FileObject child : folder.getChildren()) {
+            if (child.isData() && child.hasExt(REF_EXT)) {
+                return true;
+            }
+            if (child.isFolder() && hasContent(child)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Reads the action references from the layer folder at {@code layerPath} (for example
      * {@code "NbFx/Menus/File"}).
      *

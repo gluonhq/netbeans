@@ -19,9 +19,11 @@
 package com.gluonhq.netbeans.nbfx.api.actions;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.logging.Logger;
+import javafx.scene.control.Menu;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.input.KeyCombination;
@@ -51,22 +53,39 @@ public final class LayerMenuBuilder {
     }
 
     /**
-     * Builds the menu items for {@code folder}, inserting separators where a reference asks for one.
-     * Must be called on the JavaFX Application Thread.
+     * Builds the menu items for {@code folder}, resolving each reference against the
+     * {@link ActionRegistry} and turning non-empty nested folders into {@link Menu} submenus,
+     * inserting separators where an entry asks for one. Nesting honors {@code displayName} and
+     * {@code position} attributes on the folders. Must be called on the JavaFX Application Thread.
      *
      * @param folder the surface folder (for example {@code NbFx/Menus/File}); may be {@code null}
      * @return the menu items, in order
      */
     public List<MenuItem> build(FileObject folder) {
-        List<MenuItem> items = new ArrayList<>();
+        List<Node> nodes = new ArrayList<>();
         for (FxActionRef ref : ActionLayerReader.read(folder)) {
-            if (ref.separatorBefore() && !items.isEmpty()
-                    && !(items.get(items.size() - 1) instanceof SeparatorMenuItem)) {
+            registry.find(ref.actionId()).ifPresentOrElse(
+                    command -> nodes.add(new Node(ref.position(),
+                            ref.separatorBefore(), item(command))),
+                    () -> LOG.warning("No command registered for action reference: " + ref.actionId()));
+        }
+        for (ActionLayerReader.FxSubmenu submenu : ActionLayerReader.readSubmenus(folder)) {
+            List<MenuItem> children = build(submenu.folder());
+            if (!children.isEmpty()) {
+                Menu menu = new Menu(submenu.displayName());
+                menu.getItems().addAll(children);
+                nodes.add(new Node(submenu.position(), submenu.separatorBefore(), menu));
+            }
+        }
+        nodes.sort(Comparator.comparingInt(Node::position));
+        List<MenuItem> items = new ArrayList<>();
+        MenuItem previous = null;
+        for (Node node : nodes) {
+            if (node.separatorBefore() && previous != null && !(previous instanceof SeparatorMenuItem)) {
                 items.add(new SeparatorMenuItem());
             }
-            registry.find(ref.actionId()).ifPresentOrElse(
-                    command -> items.add(item(command)),
-                    () -> LOG.warning("No command registered for action reference: " + ref.actionId()));
+            items.add(node.item());
+            previous = node.item();
         }
         return items;
     }
@@ -97,5 +116,12 @@ public final class LayerMenuBuilder {
         KeyMap keyMap = Lookup.getDefault().lookup(KeyMap.class);
         return keyMap == null ? command.getAccelerator()
                 : keyMap.accelerator(command.getId(), command.getAccelerator());
+    }
+
+    /** A built menu item at its folder position; separators are resolved once ordered. */
+    private record Node(int position, boolean separatorBefore, MenuItem item) {
+        Node {
+            Objects.requireNonNull(item, "item");
+        }
     }
 }

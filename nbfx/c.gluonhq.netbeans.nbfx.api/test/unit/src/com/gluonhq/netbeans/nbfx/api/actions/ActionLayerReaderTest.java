@@ -70,6 +70,41 @@ public class ActionLayerReaderTest {
     @Test
     public void nullFolderYieldsEmptyList() {
         assertEquals(List.of(), ActionLayerReader.read((FileObject) null));
+        assertEquals(List.of(), ActionLayerReader.readSubmenus((FileObject) null));
+    }
+
+    @Test
+    public void readsNestedSubmenuFolders() throws IOException {
+        FileObject menu = menuFolder();
+        FileObject ideTools = FileUtil.createFolder(menu, "IDE Tools");
+        ideTools.setAttribute("position", 40);
+        addRef(ideTools, "properties", "select-properties", 10, false);
+        FileObject help = FileUtil.createFolder(menu, "Help");
+        help.setAttribute("position", 10);
+        FileObject documentation = FileUtil.createFolder(help, "Documentation");
+        documentation.setAttribute("position", 10);
+        addRef(documentation, "guide", "show-guide", 10, false);
+        // Empty folders are not submenus.
+        FileUtil.createFolder(menu, "Empty");
+
+        List<ActionLayerReader.FxSubmenu> submenus = ActionLayerReader.readSubmenus(menu);
+
+        assertEquals(2, submenus.size());
+        assertEquals("Help", submenus.get(0).displayName());
+        assertEquals("IDE Tools", submenus.get(1).displayName());
+        assertEquals(40, submenus.get(1).position());
+    }
+
+    @Test
+    public void submenuTakesDisplayNameOverrideFromItsAttribute() throws IOException {
+        FileObject menu = menuFolder();
+        FileObject ideTools = FileUtil.createFolder(menu, "IDE Tools");
+        ideTools.setAttribute("displayName", "IDE Tools & Properties");
+        addRef(ideTools, "properties", "select-properties", 10, false);
+
+        List<ActionLayerReader.FxSubmenu> submenus = ActionLayerReader.readSubmenus(menu);
+
+        assertEquals("IDE Tools & Properties", submenus.get(0).displayName());
     }
 
     private static FileObject menuFolder() throws IOException {
