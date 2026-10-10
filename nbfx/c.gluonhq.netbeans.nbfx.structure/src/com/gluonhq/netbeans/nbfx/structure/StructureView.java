@@ -31,17 +31,16 @@ import org.openide.util.NbBundle;
 import org.openide.util.lookup.ServiceProvider;
 
 /**
- * The Structure window: shows the structure of the object in the global action context (for example
+ * The Navigator window: shows the structure of the object in the global action context (for example
  * the members of the active Java document), contributed by {@link FxStructurePanel}s.
  * <p>
- * This is the FX counterpart of the Swing Navigator window ({@code NavigatorTC}). nbfx already uses
- * "navigator" for the left-column project views, so this one is named Structure to avoid confusion;
- * it is docked below the project views (the {@code navigator} mode).
+ * This is the FX counterpart of the Swing Navigator window ({@code NavigatorTC}); it keeps that name,
+ * matching Swing. It is docked below the project views (the {@code navigator} area).
  */
 @ServiceProvider(service = ViewProvider.class)
-@FxViewRegistration(id = StructureView.ID, displayName = "Structure",
+@FxViewRegistration(id = StructureView.ID, displayName = "Navigator",
         location = FxViewLocation.LEFT_BOTTOM, position = 20)
-@FxActionReference(id = ActionIds.SELECT_STRUCTURE, path = "Menus/Window/IDE Tools", position = 20)
+@FxActionReference(id = ActionIds.SELECT_NAVIGATOR, path = "Menus/Window", position = 45)
 public final class StructureView implements ViewProvider {
 
     /** The stable id of the view. */

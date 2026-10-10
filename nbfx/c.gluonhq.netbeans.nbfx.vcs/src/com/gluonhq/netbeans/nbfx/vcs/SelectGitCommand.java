@@ -22,7 +22,7 @@ import com.gluonhq.netbeans.nbfx.api.actions.AbstractCommand;
 import com.gluonhq.netbeans.nbfx.api.actions.ActionIds;
 import org.openide.util.NbBundle;
 
-/** Window ▸ Git: opens or fronts the Git view. Always enabled. */
+/** Window ▸ Versioning: opens or fronts the Versioning view. Always enabled. */
 final class SelectGitCommand extends AbstractCommand {
 
     SelectGitCommand() {

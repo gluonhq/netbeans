@@ -34,7 +34,7 @@ import org.openide.util.lookup.ServiceProvider;
  * @since 1.0
  */
 @ServiceProvider(service = ViewProvider.class)
-@FxViewRegistration(id = DebugViewProvider.ID, displayName = "Debug",
+@FxViewRegistration(id = DebugViewProvider.ID, displayName = "Debugging",
         location = FxViewLocation.CENTER_BOTTOM, position = 20)
 public final class DebugViewProvider implements ViewProvider {
 

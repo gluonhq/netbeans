@@ -6,12 +6,12 @@ import java.util.Collection;
 import java.util.List;
 import org.openide.util.lookup.ServiceProvider;
 
-/** Contributes the Window &gt; IDE Tools &gt; Structure command. */
+/** Contributes the Window &gt; Navigator command. */
 @ServiceProvider(service = CommandsProvider.class)
-public final class StructureCommandsProvider implements CommandsProvider {
+public final class NavigatorCommandsProvider implements CommandsProvider {
 
     @Override
     public Collection<Command> createCommands() {
-        return List.of(new SelectStructureCommand());
+        return List.of(new SelectNavigatorCommand());
     }
 }
