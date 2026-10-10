@@ -18,36 +18,21 @@
  */
 package com.gluonhq.netbeans.nbfx.launcher;
 
-import com.gluonhq.netbeans.nbfx.ui.JavaFXLaunchApp;
 import com.gluonhq.netbeans.nbfx.ui.project.VersioningOptOut;
-import java.util.logging.Logger;
-import javafx.application.Application;
 import org.openide.modules.ModuleInstall;
 
 /**
- * Starts the JavaFX application after the NetBeans Platform has loaded.
+ * Install-time bootstrap that must run before the modules are restored.
  * <p>
- * The platform still starts its Swing window system; {@link SwingWindowSuppressor} hides its main
- * window, which the JavaFX frontend does not use. When the window system is fully replaced, that
- * suppression (and the platform window-system modules it depends on) go away.
+ * The JavaFX application itself is launched by {@link FxGuiRunLevel}, after the modules have been
+ * enabled, so the lookups it needs are present. This installer exists only for steps that the run
+ * level would do too late.
  */
-public class JavaFXLauncher extends ModuleInstall {
-
-    private static final Logger LOG = Logger.getLogger(JavaFXLauncher.class.getName());
+public class LauncherInstall extends ModuleInstall {
 
     @Override
     public void validate() {
         // Before anything can ask a versioning system about a file.
         VersioningOptOut.apply();
-    }
-
-    @Override
-    public void restored() {
-        SwingWindowSuppressor.install();
-
-        LOG.info("NetBeans Platform loaded, launching JavaFX...");
-        Thread thread = new Thread(() -> Application.launch(JavaFXLaunchApp.class), "nbfx-javafx-launcher");
-        thread.setDaemon(true);
-        thread.start();
     }
 }
