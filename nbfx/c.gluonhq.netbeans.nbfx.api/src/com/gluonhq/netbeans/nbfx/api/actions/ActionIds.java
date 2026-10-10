@@ -128,6 +128,9 @@ public final class ActionIds {
     /** Shows the Properties window (Window &gt; IDE Tools). */
     public static final String SELECT_PROPERTIES = "selectProperties";
 
+    /** Shows the Structure window (Window &gt; IDE Tools; M8a renames this to Window &gt; Navigator). */
+    public static final String SELECT_STRUCTURE = "selectStructure";
+
     /** Debugs the active file. */
     public static final String DEBUG_FILE = "debugFile";
 

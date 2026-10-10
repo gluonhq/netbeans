@@ -18,8 +18,10 @@
  */
 package com.gluonhq.netbeans.nbfx.structure;
 
+import com.gluonhq.netbeans.nbfx.annotations.FxActionReference;
 import com.gluonhq.netbeans.nbfx.annotations.FxViewLocation;
 import com.gluonhq.netbeans.nbfx.annotations.FxViewRegistration;
+import com.gluonhq.netbeans.nbfx.api.actions.ActionIds;
 import com.gluonhq.netbeans.nbfx.api.view.DockLocation;
 import com.gluonhq.netbeans.nbfx.api.view.ViewManager;
 import com.gluonhq.netbeans.nbfx.api.view.ViewProvider;
@@ -39,6 +41,7 @@ import org.openide.util.lookup.ServiceProvider;
 @ServiceProvider(service = ViewProvider.class)
 @FxViewRegistration(id = StructureView.ID, displayName = "Structure",
         location = FxViewLocation.LEFT_BOTTOM, position = 20)
+@FxActionReference(id = ActionIds.SELECT_STRUCTURE, path = "Menus/Window/IDE Tools", position = 20)
 public final class StructureView implements ViewProvider {
 
     /** The stable id of the view. */
