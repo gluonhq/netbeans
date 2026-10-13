@@ -20,6 +20,7 @@ package com.gluonhq.netbeans.nbfx.ui;
 
 import com.gluonhq.netbeans.nbfx.api.actions.Command;
 import com.gluonhq.netbeans.nbfx.api.editor.EditorDocument;
+import com.gluonhq.netbeans.nbfx.api.view.NavigatorRevealer;
 import com.gluonhq.netbeans.nbfx.ui.actions.ActionBars;
 import com.gluonhq.netbeans.nbfx.ui.project.ProjectSwitcher;
 import com.gluonhq.netbeans.nbfx.windows.WindowEnvironment;
@@ -32,6 +33,7 @@ import javafx.scene.control.TabPane;
 import javafx.scene.layout.Region;
 import org.openide.filesystems.FileObject;
 import org.openide.util.lookup.ServiceProvider;
+import org.openide.util.lookup.ServiceProviders;
 
 /**
  * The launcher's {@link WindowEnvironment}: it supplies the window system with the host services -
@@ -39,11 +41,15 @@ import org.openide.util.lookup.ServiceProvider;
  * resolver - which used to be static setters on the tab pane. The launcher configures the single
  * instance (obtained through the Lookup) while starting up.
  */
-@ServiceProvider(service = WindowEnvironment.class)
-public final class WindowEnvironmentImpl implements WindowEnvironment {
+@ServiceProviders({
+    @ServiceProvider(service = WindowEnvironment.class),
+    @ServiceProvider(service = NavigatorRevealer.class)
+})
+public final class WindowEnvironmentImpl implements WindowEnvironment, NavigatorRevealer {
 
     private ActionBars actionBars;
     private BiConsumer<FileObject, Integer> navigatorRevealer;
+    private Function<FileObject, Boolean> navigatorFileRevealer;
     private Function<Tab, TabPane> homeResolver;
     private ProjectSwitcher projectSwitcher;
     private boolean navigatorRevealInProgress;
@@ -56,6 +62,11 @@ public final class WindowEnvironmentImpl implements WindowEnvironment {
     /** Sets the hook used by detached editor windows to reveal their selected file in the navigator. */
     void setNavigatorRevealer(BiConsumer<FileObject, Integer> navigatorRevealer) {
         this.navigatorRevealer = navigatorRevealer;
+    }
+
+    /** Sets the hook that reveals a file in whichever navigator shows its project (the targeted service). */
+    void setNavigatorFileRevealer(Function<FileObject, Boolean> navigatorFileRevealer) {
+        this.navigatorFileRevealer = navigatorFileRevealer;
     }
 
     /** Sets how the pane a tab belongs in by default is found. */
@@ -81,6 +92,12 @@ public final class WindowEnvironmentImpl implements WindowEnvironment {
             return true;
         }
         return false;
+    }
+
+    @Override
+    public boolean reveal(FileObject file) {
+        return navigatorFileRevealer != null && file != null
+                && Boolean.TRUE.equals(navigatorFileRevealer.apply(file));
     }
 
     @Override

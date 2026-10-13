@@ -3,6 +3,7 @@ package com.gluonhq.netbeans.nbfx.project.ui.java;
 import com.gluonhq.netbeans.nbfx.annotations.FxViewLocation;
 import com.gluonhq.netbeans.nbfx.annotations.FxViewRegistration;
 import com.gluonhq.netbeans.nbfx.api.NavigatorProvider;
+import com.gluonhq.netbeans.nbfx.api.project.ProjectIconProvider;
 import com.gluonhq.netbeans.nbfx.api.project.ProjectOpener;
 import com.gluonhq.netbeans.nbfx.project.ui.api.ProjectDirectory;
 import com.gluonhq.netbeans.nbfx.project.ui.api.ProjectFile;
@@ -53,14 +54,18 @@ import org.openide.util.Lookup;
 import org.openide.util.NbBundle;
 import org.openide.util.RequestProcessor;
 import org.openide.util.lookup.ServiceProvider;
+import org.openide.util.lookup.ServiceProviders;
 
 import static org.netbeans.api.java.project.JavaProjectConstants.SOURCES_TYPE_JAVA;
 import static org.netbeans.api.java.project.JavaProjectConstants.SOURCES_TYPE_RESOURCES;
 
-@ServiceProvider(service = NavigatorProvider.class, position=10)
+@ServiceProviders({
+    @ServiceProvider(service = NavigatorProvider.class, position = 10),
+    @ServiceProvider(service = ProjectIconProvider.class, position = 10)
+})
 @FxViewRegistration(displayName = "Projects",
         location = FxViewLocation.LEFT, position = 10, navigator = true)
-public class ProjectNavigatorImpl extends AbstractNavigatorProvider<ProjectEntry> {
+public class ProjectNavigatorImpl extends AbstractNavigatorProvider<ProjectEntry> implements ProjectIconProvider {
 
     private static final Logger LOG = Logger.getLogger(ProjectNavigatorImpl.class.getName());
 
@@ -145,6 +150,12 @@ public class ProjectNavigatorImpl extends AbstractNavigatorProvider<ProjectEntry
             return null;
         }
         return NavigatorIcons.createIconView(projectRoot, iconName);
+    }
+
+    @Override
+    public Node createIcon(FileObject projectRoot) {
+        String iconName = getProjectIconName(projectRoot);
+        return iconName == null ? null : getProjectIcon(projectRoot, iconName);
     }
 
     @Override

@@ -198,6 +198,7 @@ public class JavaFXLaunchApp extends Application implements WindowSink {
         if (windowEnvironment != null) {
             windowEnvironment.setActionBars(actionBars);
             windowEnvironment.setNavigatorRevealer(this::revealFileInNavigator);
+            windowEnvironment.setNavigatorFileRevealer(this::revealFileInOwningNavigator);
             windowEnvironment.setHomeResolver(tab -> {
                 if (NbfxTabPane.documentOf(tab) != null) {
                     TabPane mainPane = contentManager() instanceof ContentManagerImpl cmi ? (TabPane) cmi.getMainPane() : null;
@@ -777,6 +778,27 @@ public class JavaFXLaunchApp extends Application implements WindowSink {
         selectNavigator(provider.getId(), false);
         provider.revealFile(file);
         Platform.runLater(() -> focusNavigatorView(provider.getView()));
+    }
+
+    /**
+     * Reveals {@code file} in the first navigator whose projects contain it, showing that view. This
+     * backs the {@code NavigatorRevealer} service so the search-results UI can show a hit without
+     * knowing about the navigators itself.
+     */
+    private boolean revealFileInOwningNavigator(FileObject file) {
+        if (file == null) {
+            return false;
+        }
+        List<NavigatorProvider> list = new ArrayList<>(providers);
+        for (int index = 0; index < list.size(); index++) {
+            for (FileObject root : list.get(index).getProjectRoots()) {
+                if (root.equals(file) || FileUtil.isParentOf(root, file)) {
+                    revealFileInNavigator(file, index);
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     /**
