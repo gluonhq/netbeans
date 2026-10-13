@@ -30,6 +30,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;
 import org.openide.util.Lookup;
+import org.openide.util.lookup.ServiceProvider;
 
 /**
  * The nbfx window system: the pure lifecycle orchestration of the IDE shell.
@@ -65,6 +66,7 @@ import org.openide.util.Lookup;
  *
  * @since 1.0
  */
+@ServiceProvider(service = FxWindowSystem.class)
 public final class FxWindowSystem {
 
     /** The lifecycle phases; the window system guards its methods with them. */
@@ -74,21 +76,42 @@ public final class FxWindowSystem {
 
     private static final FxWindowSystemListener[] NO_LISTENERS = new FxWindowSystemListener[0];
 
+    /** A sink that does nothing, used before the shell has registered one. */
+    private static final WindowSink NOOP_SINK = new WindowSink() {
+        @Override
+        public void apply(WindowState state) {
+        }
+
+        @Override
+        public WindowState snapshot() {
+            return WindowState.empty();
+        }
+
+        @Override
+        public void show() {
+        }
+
+        @Override
+        public void hide() {
+        }
+    };
+
     private final Supplier<List<ViewRegistration>> registrations;
     private final ViewStateStore store;
-    private final WindowSink sink;
     private final List<FxWindowSystemListener> listeners = new ArrayList<>();
+    private volatile WindowSink sink;
 
     private List<ViewRegistration> discovered;
     private Phase phase = Phase.IDLE;
 
     /**
-     * A window system wired to the defaults: the view registry for the registrations, the default
-     * {@link ViewStateStore} and the shell {@link WindowSink} from the global {@code Lookup} (the
-     * shell registers it once it is wired; until then a no-op wrapper keeps the lifecycle inert).
+     * The window system as a service: the view registry for the registrations, the default
+     * {@link ViewStateStore}, and no sink yet. The JavaFX shell registers itself through
+     * {@link #setSink(WindowSink)} from its {@code start()}, before the first {@link #load()}; until
+     * then a no-op sink is used, so the system can be looked up and driven safely.
      */
     public FxWindowSystem() {
-        this(ViewRegistry::discover, new ViewStateStore(), lookUpSink());
+        this(ViewRegistry::discover, new ViewStateStore(), null);
     }
 
     /**
@@ -96,37 +119,35 @@ public final class FxWindowSystem {
      *
      * @param registrations the view registrations of the running distribution
      * @param store         the persisted-state store
-     * @param sink          the JavaFX shell adapter
+     * @param sink          the JavaFX shell adapter, or {@code null} until {@link #setSink(WindowSink)}
      */
     FxWindowSystem(Supplier<List<ViewRegistration>> registrations, ViewStateStore store, WindowSink sink) {
         this.registrations = Objects.requireNonNull(registrations, "registrations");
         this.store = Objects.requireNonNull(store, "store");
+        this.sink = sink;
+    }
+
+    /**
+     * Registers the JavaFX shell as the sink. The shell calls this from its {@code start()}, before
+     * {@link #init()}/{@link #load()}/{@link #show()}; it overrides any sink resolved from the global
+     * {@code Lookup}.
+     *
+     * @param sink the shell
+     */
+    public void setSink(WindowSink sink) {
         this.sink = Objects.requireNonNull(sink, "sink");
     }
 
-    private static WindowSink lookUpSink() {
-        WindowSink registered = Lookup.getDefault().lookup(WindowSink.class);
-        if (registered != null) {
-            return registered;
+    /**
+     * The sink to talk to: the one set by the shell (or injected by a test), else one resolved from
+     * the global {@code Lookup}, else a no-op one so the lifecycle can run headlessly.
+     */
+    private WindowSink sink() {
+        WindowSink current = sink;
+        if (current == null) {
+            current = Lookup.getDefault().lookup(WindowSink.class);
         }
-        return new WindowSink() {
-            @Override
-            public void apply(WindowState state) {
-            }
-
-            @Override
-            public WindowState snapshot() {
-                return WindowState.empty();
-            }
-
-            @Override
-            public void show() {
-            }
-
-            @Override
-            public void hide() {
-            }
-        };
+        return current == null ? NOOP_SINK : current;
     }
 
     /**
@@ -164,7 +185,7 @@ public final class FxWindowSystem {
     /** Makes the main window visible; requires {@link #load()}. */
     public synchronized void show() {
         require(Phase.LOADED, "show()");
-        sink.show();
+        sink().show();
         phase = Phase.SHOWN;
     }
 
@@ -173,7 +194,7 @@ public final class FxWindowSystem {
         if (phase == Phase.IDLE || phase == Phase.INIT) {
             return;
         }
-        sink.hide();
+        sink().hide();
     }
 
     /**
@@ -185,7 +206,7 @@ public final class FxWindowSystem {
             throw new IllegalStateException("save() requires phase LOADED or SHOWN but is " + phase);
         }
         notifyBeforeSave();
-        store.save(sink.snapshot());
+        store.save(sink().snapshot());
         notifyAfterSave();
     }
 
@@ -332,7 +353,7 @@ public final class FxWindowSystem {
     }
 
     private void apply(WindowState state) {
-        sink.apply(state);
+        sink().apply(state);
     }
 
     private void notifyBeforeLoad() {

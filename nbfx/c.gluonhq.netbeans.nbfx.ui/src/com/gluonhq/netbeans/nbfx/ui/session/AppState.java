@@ -20,7 +20,6 @@ import java.util.prefs.Preferences;
 import javafx.geometry.Orientation;
 import javafx.geometry.Rectangle2D;
 import javafx.stage.Screen;
-import javafx.stage.Stage;
 import org.openide.util.NbPreferences;
 
 /**
@@ -28,10 +27,11 @@ import org.openide.util.NbPreferences;
  * {@link NbPreferences} (stored in the platform userdir). All preference access
  * routes through this helper; restore is best-effort and never blocks the app.
  *
- * <p>The current window bounds and split-divider position are kept in a
+ * <p>The split-divider position and other lightweight values are kept in a
  * {@code volatile} snapshot updated by FX-thread listeners, so {@link #save()}
  * can run from any thread (e.g. a JVM shutdown hook) without touching live
- * scene-graph nodes. {@code save()} is idempotent.</p>
+ * scene-graph nodes. {@code save()} is idempotent. The main-window geometry is
+ * owned by the window system, not by this class.</p>
  */
 public final class AppState {
 
@@ -42,8 +42,6 @@ public final class AppState {
     private static final String WINDOW_WIDTH = "window.width";
     private static final String WINDOW_HEIGHT = "window.height";
     private static final String WINDOW_MAXIMIZED = "window.maximized";
-    /** Slack, in pixels, when checking whether a maximized stage still fills its screen. */
-    private static final double MAXIMIZED_TOLERANCE = 4;
     private static final String TOOLBARS = "toolbars.arrangement";
     private static final String TOOLBARS_HIDDEN = "toolbars.hidden";
     private static final String VIEW_SHOW_LINE_NUMBERS = "view.showLineNumbers";
@@ -88,9 +86,6 @@ public final class AppState {
     private final Preferences prefs;
 
     // Snapshot of the current UI state, kept up to date on the FX thread.
-    private volatile double winX = Double.NaN, winY = Double.NaN;
-    private volatile double winW = DEFAULT_WIDTH, winH = DEFAULT_HEIGHT;
-    private volatile boolean winMax = false;
     private volatile String toolbarArrangement = null;
     private volatile String toolbarHidden = null;
     private volatile boolean showLineNumbers = true;
@@ -157,58 +152,6 @@ public final class AppState {
     // --- Lifecycle wiring ---------------------------------------------------
 
     /**
-     * Restores the persisted window bounds onto the stage (before it is shown)
-     * and starts tracking further changes into the snapshot.
-     * <p>
-     * The maximized flag is not taken from {@link Stage#maximizedProperty()} alone: on macOS,
-     * un-zooming a window by dragging its edge or title only reports a plain resize / move, so the
-     * property stays {@code true} for good and every later size would be lost. A window counts as
-     * maximized only while it is flagged so <em>and</em> still fills its screen's visual bounds.
-     */
-    public void initWindow(Stage stage) {
-        restoreWindowBounds(stage);
-        stage.xProperty().subscribe(nv -> {
-            winX = nv.doubleValue();
-            updateMaximized(stage);
-        });
-        stage.yProperty().subscribe(nv -> {
-            winY = nv.doubleValue();
-            updateMaximized(stage);
-        });
-        stage.widthProperty().subscribe(nv -> {
-            winW = nv.doubleValue();
-            updateMaximized(stage);
-        });
-        stage.heightProperty().subscribe(nv -> {
-            winH = nv.doubleValue();
-            updateMaximized(stage);
-        });
-        stage.maximizedProperty().subscribe(nv -> updateMaximized(stage));
-    }
-
-    private void updateMaximized(Stage stage) {
-        winMax = stage.isMaximized() && fillsScreen(stage);
-    }
-
-    /** Whether the stage covers (within a few pixels) the visual bounds of the screen it is on. */
-    private static boolean fillsScreen(Stage stage) {
-        double x = stage.getX();
-        double y = stage.getY();
-        double w = stage.getWidth();
-        double h = stage.getHeight();
-        if (Double.isNaN(x) || Double.isNaN(y) || Double.isNaN(w) || Double.isNaN(h)) {
-            return true; // not laid out yet: trust the flag
-        }
-        List<Screen> screens = Screen.getScreensForRectangle(x, y, w, h);
-        if (screens.isEmpty()) {
-            return true;
-        }
-        Rectangle2D visual = screens.getFirst().getVisualBounds();
-        return w >= visual.getWidth() - MAXIMIZED_TOLERANCE
-                && h >= visual.getHeight() - MAXIMIZED_TOLERANCE;
-    }
-
-    /**
      * Restores the persisted tool-bar arrangement onto the container and starts
      * tracking further user reorderings into the snapshot.
      */
@@ -258,7 +201,6 @@ public final class AppState {
             return;
         }
         try {
-            saveWindowBounds(winX, winY, winW, winH, winMax);
             if (toolbarArrangement != null) {
                 prefs.put(TOOLBARS, toolbarArrangement);
             }
@@ -273,50 +215,28 @@ public final class AppState {
         }
     }
 
-    // --- Main window bounds -------------------------------------------------
+    // --- Main window bounds (legacy) ----------------------------------------
 
     /**
-     * Applies the persisted window bounds (position, size, maximized) to the
-     * given stage, falling back to the default size when nothing is stored
-     * or the stored bounds are not visible on any current screen.
+     * The main-window geometry as the session store used to keep it. Ownership has moved to the
+     * window system ({@code WindowState} persisted by {@code ViewStateStore}); this is read once,
+     * by the shell's {@code WindowSink}, to migrate users whose geometry still lives here.
+     *
+     * @return the stored bounds, with the default size when none was ever written
      */
-    private void restoreWindowBounds(Stage stage) {
+    public WindowBounds persistedWindowBounds() {
         double width = getDouble(WINDOW_WIDTH, DEFAULT_WIDTH);
         double height = getDouble(WINDOW_HEIGHT, DEFAULT_HEIGHT);
-        double x = getDouble(WINDOW_X, Double.NaN);
-        double y = getDouble(WINDOW_Y, Double.NaN);
-
         if (width <= 0 || height <= 0) {
             width = DEFAULT_WIDTH;
             height = DEFAULT_HEIGHT;
         }
-        stage.setWidth(width);
-        stage.setHeight(height);
-
-        if (!Double.isNaN(x) && !Double.isNaN(y) && isVisibleOnAnyScreen(x, y, width, height)) {
-            stage.setX(x);
-            stage.setY(y);
-        } else if (!Double.isNaN(x) || !Double.isNaN(y)) {
-            LOG.log(Level.INFO, "Stored window position is off-screen; centering instead");
-        }
-
-        stage.setMaximized(prefs.getBoolean(WINDOW_MAXIMIZED, false));
+        return new WindowBounds(getDouble(WINDOW_X, Double.NaN), getDouble(WINDOW_Y, Double.NaN),
+                width, height, prefs.getBoolean(WINDOW_MAXIMIZED, false));
     }
 
-    /**
-     * Persists the given window bounds. When maximized, only the flag is stored
-     * so a later un-maximize keeps the previous restore-size.
-     */
-    private void saveWindowBounds(double x, double y, double width, double height, boolean maximized) {
-        prefs.putBoolean(WINDOW_MAXIMIZED, maximized);
-        if (!maximized) {
-            prefs.putDouble(WINDOW_X, x);
-            prefs.putDouble(WINDOW_Y, y);
-            prefs.putDouble(WINDOW_WIDTH, width);
-            prefs.putDouble(WINDOW_HEIGHT, height);
-        }
-        flush();
-    }
+    /** A main-window geometry snapshot: position ({@code NaN} when unknown), size and maximized flag. */
+    public record WindowBounds(double x, double y, double width, double height, boolean maximized) {}
 
     // --- Recent projects ----------------------------------------------------
 
@@ -544,7 +464,11 @@ public final class AppState {
         }
     }
 
-    private static boolean isVisibleOnAnyScreen(double x, double y, double w, double h) {
+    /**
+     * Whether a window at {@code (x, y)} of size {@code w x h} intersects some screen's visual
+     * bounds. Used to drop a stored position that is no longer on any attached screen.
+     */
+    public static boolean isVisibleOnAnyScreen(double x, double y, double w, double h) {
         Rectangle2D window = new Rectangle2D(x, y, Math.max(1, w), Math.max(1, h));
         for (Screen screen : Screen.getScreens()) {
             if (screen.getVisualBounds().intersects(window)) {

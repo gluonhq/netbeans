@@ -28,7 +28,10 @@ import com.gluonhq.netbeans.nbfx.ui.shell.WindowTitles;
 import com.gluonhq.netbeans.nbfx.statusbar.FxStatusBar;
 import com.gluonhq.netbeans.nbfx.statusbar.StatusElement;
 import com.gluonhq.netbeans.nbfx.statusbar.StatusElementRegistry;
+import com.gluonhq.netbeans.nbfx.windows.FxWindowSystem;
 import com.gluonhq.netbeans.nbfx.windows.WindowEnvironment;
+import com.gluonhq.netbeans.nbfx.windows.WindowSink;
+import com.gluonhq.netbeans.nbfx.windows.WindowState;
 import com.gluonhq.netbeans.nbfx.windows.ViewRegistration;
 import com.gluonhq.netbeans.nbfx.windows.ViewRegistry;
 
@@ -68,6 +71,7 @@ import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
 import javafx.collections.ListChangeListener;
 import javafx.collections.ObservableList;
+import javafx.geometry.Rectangle2D;
 import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.Tab;
@@ -75,6 +79,7 @@ import javafx.scene.control.TabPane;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.VBox;
 import javafx.stage.DirectoryChooser;
+import javafx.stage.Screen;
 import javafx.stage.Stage;
 import javafx.stage.Window;
 import javafx.util.Subscription;
@@ -88,11 +93,18 @@ import org.openide.util.lookup.Lookups;
 import org.netbeans.modules.parsing.api.indexing.IndexingManager;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-public class JavaFXLaunchApp extends Application {
+public class JavaFXLaunchApp extends Application implements WindowSink {
 
     private final static Logger LOG = Logger.getLogger(JavaFXLaunchApp.class.getName());
 
     private Stage stage;
+    /** The window system driving the main-window lifecycle; {@code null} when none is registered. */
+    private FxWindowSystem windowSystem;
+    /** Whether the window system reached the SHOWN phase, so {@link FxWindowSystem#save()} is legal. */
+    private boolean windowSystemShown;
+    /** Last non-maximized geometry, so a maximized window still persists a restore-size. */
+    private double restoreX = Double.NaN, restoreY = Double.NaN;
+    private double restoreWidth = AppState.DEFAULT_WIDTH, restoreHeight = AppState.DEFAULT_HEIGHT;
     private Collection<? extends NavigatorProvider> providers;
     private final AppState appState = new AppState();
     private final SessionRestorer sessionRestorer = new SessionRestorer(appState, this::viewTabFor);
@@ -270,8 +282,8 @@ public class JavaFXLaunchApp extends Application {
         }
         stage.setScene(scene);
 
-        // Restore + track window bounds before showing; register the save hook.
-        appState.initWindow(stage);
+        // Track the geometry the window system will snapshot; register the save hook.
+        trackWindowBounds();
         appState.initToolbars(toolBars);
         appState.initViewSettings(Lookup.getDefault().lookup(EditorSettings.class));
         appState.installShutdownHook();
@@ -296,7 +308,18 @@ public class JavaFXLaunchApp extends Application {
         // from another application is exactly when the user may have just made some.
         watchApplicationFocus();
 
-        stage.show();
+        // Drive the window lifecycle through the window system: it restores the persisted geometry
+        // (through this shell) and shows the stage. Without one, show directly with the defaults.
+        windowSystem = Lookup.getDefault().lookup(FxWindowSystem.class);
+        if (windowSystem != null) {
+            windowSystem.setSink(this);
+            windowSystem.init();
+            windowSystem.load();
+            windowSystem.show();
+            windowSystemShown = true;
+        } else {
+            stage.show();
+        }
 
         Platform.runLater(this::restoreSessionProjects);
     }
@@ -317,6 +340,9 @@ public class JavaFXLaunchApp extends Application {
         // via screen coordinates before the stage is hidden by Platform.exit().
         captureSession();
         projectStateCaptured = true;
+        if (windowSystemShown) {
+            windowSystem.save();
+        }
         Platform.exit();
         return true;
     }
@@ -401,10 +427,121 @@ public class JavaFXLaunchApp extends Application {
         if (!projectStateCaptured) {
             captureSession();
         }
+        if (windowSystemShown) {
+            windowSystem.save();
+        }
         appState.save();
         refresher.shutdown();
         LOG.info("JavaFX application stopping, shutting down NetBeans Platform...");
         LifecycleManager.getDefault().exit();
+    }
+
+    // --- WindowSink: the JavaFX shell adapter the window system drives -----------------------------
+
+    /** Within this many pixels of the screen's visual bounds counts as "maximized". */
+    private static final double MAXIMIZED_TOLERANCE = 4;
+
+    @Override
+    public void apply(WindowState state) {
+        if (stage == null) {
+            return;
+        }
+        double x = state.x();
+        double y = state.y();
+        double width = state.width();
+        double height = state.height();
+        boolean maximized = state.maximized();
+        if (!(width > 0)) {
+            // No window-system geometry persisted yet: migrate what the session store used to own.
+            AppState.WindowBounds legacy = appState.persistedWindowBounds();
+            x = legacy.x();
+            y = legacy.y();
+            width = legacy.width();
+            height = legacy.height();
+            maximized = legacy.maximized();
+        }
+        stage.setWidth(width);
+        stage.setHeight(height);
+        if (!Double.isNaN(x) && !Double.isNaN(y) && AppState.isVisibleOnAnyScreen(x, y, width, height)) {
+            stage.setX(x);
+            stage.setY(y);
+        } else if (!Double.isNaN(x) || !Double.isNaN(y)) {
+            LOG.info("Stored window position is off-screen; centering instead");
+        }
+        restoreWidth = width;
+        restoreHeight = height;
+        stage.setMaximized(maximized);
+    }
+
+    @Override
+    public WindowState snapshot() {
+        boolean maximized = isMaximized();
+        double x = maximized ? restoreX : stage.getX();
+        double y = maximized ? restoreY : stage.getY();
+        double width = maximized ? restoreWidth : stage.getWidth();
+        double height = maximized ? restoreHeight : stage.getHeight();
+        return new WindowState(List.of(), x, y, width, height, maximized, Map.of());
+    }
+
+    @Override
+    public void show() {
+        stage.show();
+    }
+
+    @Override
+    public void hide() {
+        stage.hide();
+    }
+
+    /**
+     * Mirrors the main window's geometry into the restore fields, ignoring a maximized frame so a
+     * maximized window still persists the size to restore to.
+     */
+    private void trackWindowBounds() {
+        stage.xProperty().subscribe(nv -> {
+            if (!isMaximized()) {
+                restoreX = nv.doubleValue();
+            }
+        });
+        stage.yProperty().subscribe(nv -> {
+            if (!isMaximized()) {
+                restoreY = nv.doubleValue();
+            }
+        });
+        stage.widthProperty().subscribe(nv -> {
+            if (!isMaximized()) {
+                restoreWidth = nv.doubleValue();
+            }
+        });
+        stage.heightProperty().subscribe(nv -> {
+            if (!isMaximized()) {
+                restoreHeight = nv.doubleValue();
+            }
+        });
+    }
+
+    /**
+     * Whether the window is really maximized. On macOS, un-maximizing by dragging the edge leaves
+     * the stage's flag set, so the flag only counts when the frame also fills the screen.
+     */
+    private boolean isMaximized() {
+        if (!stage.isMaximized()) {
+            return false;
+        }
+        double x = stage.getX();
+        double y = stage.getY();
+        double w = stage.getWidth();
+        double h = stage.getHeight();
+        if (Double.isNaN(x) || Double.isNaN(y) || Double.isNaN(w) || Double.isNaN(h)) {
+            return true; // not laid out yet: trust the flag
+        }
+        List<Screen> screens = Screen.getScreensForRectangle(x, y, w, h);
+        if (screens.isEmpty()) {
+            return true;
+        }
+        Rectangle2D visual = screens.getFirst().getVisualBounds();
+        return w >= visual.getWidth() - MAXIMIZED_TOLERANCE
+                && h >= visual.getHeight() - MAXIMIZED_TOLERANCE;
     }
 
     private NbfxTabPane createNavigator() {
