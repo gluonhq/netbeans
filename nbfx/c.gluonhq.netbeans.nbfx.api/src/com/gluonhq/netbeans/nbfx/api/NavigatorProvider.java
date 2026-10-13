@@ -80,26 +80,6 @@ public interface NavigatorProvider extends ViewProvider {
     }
 
     /**
-     * Returns the name of the (menu-sized) icon resource for the currently loaded project root,
-     * matching its tree root node, or {@code null}.
-     * @param projectRoot the project root directory
-     * @return the icon resource name, or {@code null}
-     */
-    default String getProjectIconName(FileObject projectRoot) {
-        return null;
-    }
-
-    /**
-     * Returns an icon node for the given project root using a previously resolved icon name.
-     * @param projectRoot the project root directory
-     * @param iconName the icon resource name previously resolved for this project
-     * @return an icon node, or {@code null}
-     */
-    default Node getProjectIcon(FileObject projectRoot, String iconName) {
-        return null;
-    }
-
-    /**
      * Registers a callback invoked on the JavaFX Application Thread with a project's root once that
      * project's view has finished loading.
      * @param onProjectLoaded the callback to run when a project has loaded

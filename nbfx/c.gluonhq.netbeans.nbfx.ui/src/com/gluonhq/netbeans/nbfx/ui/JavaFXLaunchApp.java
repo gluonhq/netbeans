@@ -46,6 +46,7 @@ import com.gluonhq.netbeans.nbfx.api.editor.EditorSettings;
 import com.gluonhq.netbeans.nbfx.api.file.FileSelectionContext;
 import com.gluonhq.netbeans.nbfx.api.NavigatorProvider;
 import com.gluonhq.netbeans.nbfx.api.project.OpenProject;
+import com.gluonhq.netbeans.nbfx.api.project.ProjectIconProvider;
 import com.gluonhq.netbeans.nbfx.api.project.ProjectRegistry;
 import com.gluonhq.netbeans.nbfx.api.progress.FxProgress;
 import com.gluonhq.netbeans.nbfx.api.view.ViewProvider;
@@ -1285,15 +1286,8 @@ public class JavaFXLaunchApp extends Application implements WindowSink {
         // Registered before its editors are restored, so each of them resolves its owning project.
         OpenProject project = projectRegistry.open(rootFileObject);
         rootWatcher.watch(project);
-        String iconName = null;
-        if (providers != null) {
-            for (NavigatorProvider provider : providers) {
-                iconName = provider.getProjectIconName(rootFileObject);
-                if (iconName != null) {
-                    break;
-                }
-            }
-        }
+        ProjectIconProvider icons = Lookup.getDefault().lookup(ProjectIconProvider.class);
+        String iconName = icons == null ? null : icons.iconName(rootFileObject);
         appState.addRecentProject(dir.getPath(), iconName);
         actionBars.refreshRecentProjects();
         persistSession();
@@ -1464,37 +1458,25 @@ public class JavaFXLaunchApp extends Application implements WindowSink {
         return list.get(0);
     }
 
-    /** The icon of an open project, resolved from its root through the navigator providers. */
+    /** The icon of an open project, resolved from its root through the {@link ProjectIconProvider}. */
     private Node projectIcon(OpenProject project) {
-        if (project == null || providers == null) {
+        if (project == null) {
             return null;
         }
-        FileObject root = project.getRoot();
-        for (NavigatorProvider provider : providers) {
-            String iconName = provider.getProjectIconName(root);
-            Node icon = iconName == null ? null : provider.getProjectIcon(root, iconName);
-            if (icon != null) {
-                return icon;
-            }
-        }
-        return null;
+        ProjectIconProvider icons = Lookup.getDefault().lookup(ProjectIconProvider.class);
+        return icons == null ? null : icons.createIcon(project.getRoot());
     }
 
     private Node projectIcon(File dir, String iconName) {
-        if (dir == null || iconName == null || providers == null) {
+        if (dir == null || iconName == null) {
             return null;
         }
         FileObject fo = FileUtil.toFileObject(dir);
         if (fo == null) {
             return null;
         }
-        for (NavigatorProvider provider : providers) {
-            Node icon = provider.getProjectIcon(fo, iconName);
-            if (icon != null) {
-                return icon;
-            }
-        }
-        return null;
+        ProjectIconProvider icons = Lookup.getDefault().lookup(ProjectIconProvider.class);
+        return icons == null ? null : icons.createIcon(fo, iconName);
     }
 
     /**

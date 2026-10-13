@@ -136,26 +136,27 @@ public class ProjectNavigatorImpl extends AbstractNavigatorProvider<ProjectEntry
     }
 
     @Override
-    public String getProjectIconName(FileObject projectRoot) {
-        RootState state = rootState(projectRoot);
-        if (state == null || state.item() == null || state.item().getValue() == null) {
-            return null;
-        }
-        return NavigatorIcons.toMenuIconName(state.item().getValue().getIconName());
+    public Node createIcon(FileObject projectRoot) {
+        String iconName = iconName(projectRoot);
+        return iconName == null ? null : createIcon(projectRoot, iconName);
     }
 
     @Override
-    public Node getProjectIcon(FileObject projectRoot, String iconName) {
+    public Node createIcon(FileObject projectRoot, String iconName) {
         if (projectRoot == null || iconName == null || iconName.isBlank()) {
             return null;
         }
         return NavigatorIcons.createIconView(projectRoot, iconName);
     }
 
+    /** The project-type icon name of the loaded tree root, or {@code null} when it is not built yet. */
     @Override
-    public Node createIcon(FileObject projectRoot) {
-        String iconName = getProjectIconName(projectRoot);
-        return iconName == null ? null : getProjectIcon(projectRoot, iconName);
+    public String iconName(FileObject projectRoot) {
+        RootState state = rootState(projectRoot);
+        if (state == null || state.item() == null || state.item().getValue() == null) {
+            return null;
+        }
+        return NavigatorIcons.toMenuIconName(state.item().getValue().getIconName());
     }
 
     @Override
