@@ -92,10 +92,13 @@ public class FxActionRegistrationProcessor extends LayerGeneratingProcessor {
     private void registerReference(Element element, FxActionReference reference)
             throws LayerGenerationException {
         String path = "NbFx/" + reference.path() + "/" + reference.id() + FxLayer.REF_SUFFIX;
-        layer(element).file(path)
-                .stringvalue("actionId", reference.id())
+        org.openide.filesystems.annotations.LayerBuilder.File file = layer(element).file(path);
+        file.stringvalue("actionId", reference.id())
                 .intvalue("position", reference.position())
-                .boolvalue("separatorBefore", reference.separatorBefore())
-                .write();
+                .boolvalue("separatorBefore", reference.separatorBefore());
+        if (!reference.mimeType().isBlank()) {
+            file.stringvalue("mimeType", reference.mimeType());
+        }
+        file.write();
     }
 }

@@ -1,9 +1,11 @@
 package com.gluonhq.netbeans.nbfx.project.ui.java;
 
 import com.gluonhq.netbeans.nbfx.api.actions.ActionIds;
+import com.gluonhq.netbeans.nbfx.api.actions.ActionLayerReader;
 import com.gluonhq.netbeans.nbfx.api.actions.ActionRegistry;
 import com.gluonhq.netbeans.nbfx.api.actions.Command;
 import com.gluonhq.netbeans.nbfx.api.actions.FileContextMenuContributor;
+import com.gluonhq.netbeans.nbfx.api.actions.FxActionRef;
 import com.gluonhq.netbeans.nbfx.api.editor.EditorContext;
 import com.gluonhq.netbeans.nbfx.api.project.OpenProject;
 import com.gluonhq.netbeans.nbfx.api.project.ProjectOpener;
@@ -149,10 +151,42 @@ final class NavigatorContextMenuFactory<T> {
             addFolderContributions(menu, List.of(fo));
         }
         // Terminal / file-manager actions are available on every node.
+        addNavigatorLayerItems(menu, fo);
         menu.getItems().addAll(
                 openInTerminalItem(fo),
                 showInFileManagerItem(fo));
         return menu;
+    }
+
+    /**
+     * Adds the layer-registered {@code ContextMenus/Navigator} action references that apply to
+     * {@code fo}'s content type (mime), so modules can extend the navigator node menu declaratively
+     * with {@code @FxActionReference(path = "ContextMenus/Navigator", mimeType = "...")}.
+     */
+    private static void addNavigatorLayerItems(ContextMenu menu, FileObject fo) {
+        List<FxActionRef> refs = ActionLayerReader.readForMime("NbFx/ContextMenus/Navigator", fo.getMIMEType());
+        if (refs.isEmpty()) {
+            return;
+        }
+        ActionRegistry registry = Lookup.getDefault().lookup(ActionRegistry.class);
+        List<MenuItem> items = new ArrayList<>();
+        for (FxActionRef ref : refs) {
+            Command command = registry == null ? null : registry.find(ref.actionId()).orElse(null);
+            if (command == null) {
+                continue;
+            }
+            if (ref.separatorBefore() && !items.isEmpty()) {
+                items.add(new SeparatorMenuItem());
+            }
+            MenuItem item = new MenuItem(command.getText());
+            item.disableProperty().bind(command.disabledProperty());
+            item.setOnAction(e -> command.run());
+            items.add(item);
+        }
+        if (!items.isEmpty()) {
+            menu.getItems().add(new SeparatorMenuItem());
+            menu.getItems().addAll(items);
+        }
     }
 
     /** Builds a batch menu that operates on all selected items. */

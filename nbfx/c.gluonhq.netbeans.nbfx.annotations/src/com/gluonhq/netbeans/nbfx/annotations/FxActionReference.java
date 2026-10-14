@@ -51,4 +51,11 @@ public @interface FxActionReference {
 
     /** Whether a separator is drawn before this reference. */
     boolean separatorBefore() default false;
+
+    /**
+     * An optional content type (MIME type) the reference applies to. When empty the reference applies
+     * to every node of the surface; when set, a mime-aware surface (the Navigator context menu) only
+     * shows it for nodes of that type.
+     */
+    String mimeType() default "";
 }

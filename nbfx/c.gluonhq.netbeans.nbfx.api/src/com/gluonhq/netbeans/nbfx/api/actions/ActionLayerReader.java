@@ -68,6 +68,59 @@ public final class ActionLayerReader {
     }
 
     /**
+     * Reads the action references directly under {@code folder} that apply to {@code mimeType}: a
+     * reference with no {@code mimeType} attribute applies to every type, one with a type applies
+     * only when it matches. Ordered by position then id.
+     *
+     * @param folder   the surface folder (for example {@code NbFx/ContextMenus/Navigator}); may be
+     *                 {@code null}
+     * @param mimeType the content type of the node the surface is being built for, or {@code null}
+     * @return the ordered references, never {@code null}
+     */
+    public static List<FxActionRef> readForMime(FileObject folder, String mimeType) {
+        if (folder == null) {
+            return List.of();
+        }
+        List<FxActionRef> refs = new ArrayList<>();
+        for (FileObject child : folder.getChildren()) {
+            if (!child.isData() || !child.hasExt(REF_EXT)) {
+                continue;
+            }
+            if (!(child.getAttribute("actionId") instanceof String actionId) || actionId.isBlank()) {
+                continue;
+            }
+            if (!mimeMatches(child.getAttribute("mimeType"), mimeType)) {
+                continue;
+            }
+            int position = child.getAttribute("position") instanceof Integer p ? p : Integer.MAX_VALUE;
+            boolean separatorBefore = Boolean.TRUE.equals(child.getAttribute("separatorBefore"));
+            refs.add(new FxActionRef(actionId, position, separatorBefore));
+        }
+        refs.sort(Comparator.comparingInt(FxActionRef::position).thenComparing(FxActionRef::actionId));
+        return List.copyOf(refs);
+    }
+
+    /**
+     * Reads the mime-filtered action references from the layer folder at {@code layerPath}; see
+     * {@link #readForMime(FileObject, String)}.
+     *
+     * @param layerPath the layer path (for example {@code "NbFx/ContextMenus/Navigator"}); may be null
+     * @param mimeType  the content type of the node, or {@code null}
+     * @return the ordered references, never {@code null}
+     */
+    public static List<FxActionRef> readForMime(String layerPath, String mimeType) {
+        return readForMime(layerPath == null ? null : FileUtil.getConfigFile(layerPath), mimeType);
+    }
+
+    /** A reference with no declared mime applies everywhere; otherwise it must equal the node's mime. */
+    private static boolean mimeMatches(Object declared, String mimeType) {
+        if (!(declared instanceof String declaredMime) || declaredMime.isBlank()) {
+            return true;
+        }
+        return declaredMime.equals(mimeType);
+    }
+
+    /**
      * A nested menu folder: its {@link #displayName()}, {@link #position()} and {@link #folder()}.
      *
      * @param position       the position among the siblings, from the folder's {@code position} attribute

@@ -107,6 +107,23 @@ public class ActionLayerReaderTest {
         assertEquals("IDE Tools & Properties", submenus.get(0).displayName());
     }
 
+    @Test
+    public void filtersReferencesByMimeType() throws IOException {
+        FileObject menu = menuFolder();
+        addRef(menu, "any", "any", 10, false);
+        addRefWithMime(menu, "java", "java-only", 20, false, "text/x-java");
+        addRefWithMime(menu, "xml", "xml-only", 30, false, "text/x-xml");
+
+        List<FxActionRef> java = ActionLayerReader.readForMime(menu, "text/x-java");
+        assertEquals(List.of("any", "java-only"), java.stream().map(FxActionRef::actionId).toList());
+
+        List<FxActionRef> other = ActionLayerReader.readForMime(menu, "text/plain");
+        assertEquals(List.of("any"), other.stream().map(FxActionRef::actionId).toList());
+
+        List<FxActionRef> noMime = ActionLayerReader.readForMime(menu, null);
+        assertEquals(List.of("any"), noMime.stream().map(FxActionRef::actionId).toList());
+    }
+
     private static FileObject menuFolder() throws IOException {
         FileSystem fs = FileUtil.createMemoryFileSystem();
         return FileUtil.createFolder(fs.getRoot(), "NbFx/Menus/File");
@@ -118,5 +135,14 @@ public class ActionLayerReaderTest {
         file.setAttribute("actionId", actionId);
         file.setAttribute("position", position);
         file.setAttribute("separatorBefore", separatorBefore);
+    }
+
+    private static void addRefWithMime(FileObject folder, String name, String actionId, int position,
+            boolean separatorBefore, String mimeType) throws IOException {
+        FileObject file = folder.createData(name, "ref");
+        file.setAttribute("actionId", actionId);
+        file.setAttribute("position", position);
+        file.setAttribute("separatorBefore", separatorBefore);
+        file.setAttribute("mimeType", mimeType);
     }
 }
