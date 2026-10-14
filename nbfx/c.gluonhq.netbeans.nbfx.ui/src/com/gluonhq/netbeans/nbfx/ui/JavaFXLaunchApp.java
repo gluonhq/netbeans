@@ -600,7 +600,7 @@ public class JavaFXLaunchApp extends Application implements WindowSink {
     private static List<String> registeredNavigatorIds() {
         List<String> ids = new ArrayList<>();
         for (ViewRegistration registration : ViewRegistry.discover()) {
-            if (registration.navigator() && registration.view() instanceof NavigatorProvider) {
+            if (registration.navigator()) {
                 ids.add(registration.id());
             }
         }
@@ -786,19 +786,15 @@ public class JavaFXLaunchApp extends Application implements WindowSink {
      * knowing about the navigators itself.
      */
     private boolean revealFileInOwningNavigator(FileObject file) {
-        if (file == null) {
+        if (file == null || providers == null || providers.isEmpty()) {
             return false;
         }
-        List<NavigatorProvider> list = new ArrayList<>(providers);
-        for (int index = 0; index < list.size(); index++) {
-            for (FileObject root : list.get(index).getProjectRoots()) {
-                if (root.equals(file) || FileUtil.isParentOf(root, file)) {
-                    revealFileInNavigator(file, index);
-                    return true;
-                }
-            }
+        if (projectRegistry.ownerOf(file) == null) {
+            return false;
         }
-        return false;
+        // Prefer the first navigator (the Projects view, in declared position order).
+        revealFileInNavigator(file, 0);
+        return true;
     }
 
     /**
