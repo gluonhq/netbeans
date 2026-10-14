@@ -710,6 +710,7 @@ public class ProjectNavigatorImpl extends AbstractNavigatorProvider<ProjectEntry
     @Override
     public Node getView() {
         LOG.info("View asked, return " + view);
+        observeOpenProjects();
         if (view == null) {
             view = createTreeView();
         }

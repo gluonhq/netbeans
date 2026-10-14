@@ -90,7 +90,6 @@ import org.openide.filesystems.FileUtil;
 import org.openide.util.Lookup;
 import org.openide.util.NbBundle;
 import org.openide.util.RequestProcessor;
-import org.openide.util.lookup.Lookups;
 import org.netbeans.modules.parsing.api.indexing.IndexingManager;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -1152,17 +1151,19 @@ public class JavaFXLaunchApp extends Application implements WindowSink {
             LOG.warning("No NavigatorProviders found");
             return;
         }
-        Lookup rootFoContext = Lookups.singleton(rootFileObject);
+        // Read with the normalized path, the same key the state was captured under, and stash the
+        // pending expansion/selection on the views before opening: they mirror the registry and build
+        // a project's tree as soon as it is opened, applying this pending state.
+        List<String> expandedPaths = appState.getExpandedNodes(projectDir.getPath());
+        String selectedPath = appState.getSelectedNode(projectDir.getPath());
+        for (NavigatorProvider provider : providers) {
+            provider.restoreExpandedPaths(rootFileObject, expandedPaths);
+            provider.restoreSelectedPath(rootFileObject, selectedPath);
+        }
         loads.begin(path, projectDir);
         updateLoadingProgress();
-        // Read with the normalized path, the same key the state was captured under.
-        List<String> expandedPaths = appState.getExpandedNodes(projectDir.getPath());
-        for (NavigatorProvider provider : providers) {
-            LOG.info("Adding project " + path + " to " + provider);
-            provider.restoreExpandedPaths(rootFileObject, expandedPaths);
-            provider.restoreSelectedPath(rootFileObject, appState.getSelectedNode(projectDir.getPath()));
-            provider.addProject(rootFoContext);
-        }
+        // Opening the registry is what makes the views build the tree (they observe it).
+        projectRegistry.open(rootFileObject);
     }
 
     /** The running application, or {@code null} before it starts. */
@@ -1248,12 +1249,11 @@ public class JavaFXLaunchApp extends Application implements WindowSink {
         if (dir == null) {
             return;
         }
-        FileObject root = FileUtil.toFileObject(dir);
-        if (providers != null && root != null) {
-            for (NavigatorProvider provider : providers) {
-                provider.cancelLoading(root);
-                provider.removeProject(root);
-            }
+        // Closing the registry entry makes the views stop their load and drop the tree (they observe
+        // the registry); a failed or cancelled load therefore leaves no partial root behind.
+        OpenProject project = projectRegistry.find(path);
+        if (project != null) {
+            projectRegistry.close(project);
         }
         loads.end(path);
         updateLoadingProgress();
@@ -1278,13 +1278,15 @@ public class JavaFXLaunchApp extends Application implements WindowSink {
         String path = OpenProject.pathOf(rootFileObject);
         loads.end(path);
         updateLoadingProgress();
-        if (projectRegistry.find(path) != null) {
+        OpenProject project = projectRegistry.find(path);
+        if (project == null) {
+            // Closed while it was still loading: nothing to record.
             sessionProjectSettled(path);
             return;
         }
         File dir = new File(path);
-        // Registered before its editors are restored, so each of them resolves its owning project.
-        OpenProject project = projectRegistry.open(rootFileObject);
+        // The project was registered when it was opened (the views observe the registry), so its
+        // editors can already resolve their owning project; only the post-load bookkeeping is left.
         rootWatcher.watch(project);
         ProjectIconProvider icons = Lookup.getDefault().lookup(ProjectIconProvider.class);
         String iconName = icons == null ? null : icons.iconName(rootFileObject);
@@ -1356,9 +1358,7 @@ public class JavaFXLaunchApp extends Application implements WindowSink {
         if (contentManager != null) {
             contentManager.closeFiles(path);
         }
-        if (providers != null) {
-            providers.forEach(provider -> provider.removeProjectAt(path));
-        }
+        // Closing the registry entry makes the views drop the project's tree (they observe it).
         projectRegistry.close(project);
         // Only this project's file-operation history goes: the other projects keep theirs.
         FileUndoManager.getDefault().clear(path);
@@ -1391,9 +1391,7 @@ public class JavaFXLaunchApp extends Application implements WindowSink {
         }
         // File undo history refers to paths inside the closed projects; drop it.
         FileUndoManager.getDefault().clear();
-        if (providers != null) {
-            providers.forEach(NavigatorProvider::removeAllProjects);
-        }
+        // Closing the registry makes the views drop every project's tree (they observe it).
         projectRegistry.closeAll();
         for (OpenProject project : projects) {
             appState.clearProjectState(new File(project.getPath()));

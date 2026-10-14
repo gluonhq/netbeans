@@ -2,6 +2,7 @@ package com.gluonhq.netbeans.nbfx.project.ui.java;
 
 import com.gluonhq.netbeans.nbfx.api.NavigatorProvider;
 import com.gluonhq.netbeans.nbfx.api.project.OpenProject;
+import com.gluonhq.netbeans.nbfx.api.project.ProjectRegistry;
 import com.gluonhq.netbeans.nbfx.project.ui.java.utils.ProjectModuleInfoAccessibilityQuery;
 import com.gluonhq.netbeans.nbfx.project.ui.utils.Projects;
 import com.gluonhq.netbeans.nbfx.project.ui.java.utils.TreeNav;
@@ -18,6 +19,7 @@ import java.util.logging.Logger;
 import javafx.animation.PauseTransition;
 import javafx.application.Platform;
 import javafx.beans.value.ObservableValue;
+import javafx.collections.ListChangeListener;
 import javafx.scene.control.TreeItem;
 import javafx.scene.control.TreeView;
 import javafx.util.Duration;
@@ -28,6 +30,7 @@ import org.openide.filesystems.FileUtil;
 import org.openide.util.Lookup;
 import org.openide.util.lookup.AbstractLookup;
 import org.openide.util.lookup.InstanceContent;
+import org.openide.util.lookup.Lookups;
 
 /**
  * Shared base for the two {@link NavigatorProvider} implementations: the logical Project view
@@ -69,6 +72,46 @@ abstract class AbstractNavigatorProvider<T> implements NavigatorProvider {
 
     /** Set while a persisted tree selection is being applied; see {@link #restoringSelection}. */
     private boolean restoringSelection;
+
+    /** The open-project model this view mirrors; {@code null} until {@link #observeOpenProjects()}. */
+    private ProjectRegistry projectRegistry;
+
+    /**
+     * Mirrors project additions/removals from {@link ProjectRegistry} into this view's tree: the shell
+     * opens/closes a project in the registry and the view reacts, instead of being fed directly.
+     */
+    private final ListChangeListener<OpenProject> openProjectsListener = change -> {
+        while (change.next()) {
+            for (OpenProject project : change.getRemoved()) {
+                FileObject root = project.getRoot();
+                cancelLoading(root);
+                removeProject(root);
+            }
+            for (OpenProject project : change.getAddedSubList()) {
+                addProject(Lookups.singleton(project.getRoot()));
+            }
+        }
+    };
+
+    /**
+     * Starts mirroring the open-project model: from now on this view adds a tree for every project the
+     * registry opens and drops it when the registry closes it. Already-open projects are adopted too,
+     * so subscribing late is safe. Idempotent for the same registry.
+     */
+    protected final void observeOpenProjects() {
+        ProjectRegistry registry = Lookup.getDefault().lookup(ProjectRegistry.class);
+        if (registry == null || registry == projectRegistry) {
+            return;
+        }
+        if (projectRegistry != null) {
+            projectRegistry.getOpenProjects().removeListener(openProjectsListener);
+        }
+        projectRegistry = registry;
+        registry.getOpenProjects().addListener(openProjectsListener);
+        for (OpenProject project : registry.getOpenProjects()) {
+            addProject(Lookups.singleton(project.getRoot()));
+        }
+    }
 
     /** Everything this view tracks for a single open project. */
     protected class RootState {
