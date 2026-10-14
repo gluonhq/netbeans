@@ -2,7 +2,7 @@ package com.gluonhq.netbeans.nbfx.project.ui.java;
 
 import com.gluonhq.netbeans.nbfx.annotations.FxViewLocation;
 import com.gluonhq.netbeans.nbfx.annotations.FxViewRegistration;
-import com.gluonhq.netbeans.nbfx.api.NavigatorProvider;
+import com.gluonhq.netbeans.nbfx.api.view.ViewProvider;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -31,7 +31,7 @@ import org.openide.util.Lookup;
 import org.openide.util.NbBundle;
 import org.openide.util.lookup.ServiceProvider;
 
-@ServiceProvider(service = NavigatorProvider.class, position=20)
+@ServiceProvider(service = ViewProvider.class, position=20)
 @FxViewRegistration(displayName = "Files",
         location = FxViewLocation.LEFT, position = 20, navigator = true)
 public class FileNavigatorImpl extends AbstractNavigatorProvider<FileObject> {

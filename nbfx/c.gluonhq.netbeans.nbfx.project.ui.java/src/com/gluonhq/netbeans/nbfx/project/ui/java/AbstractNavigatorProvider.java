@@ -1,8 +1,8 @@
 package com.gluonhq.netbeans.nbfx.project.ui.java;
 
-import com.gluonhq.netbeans.nbfx.api.NavigatorProvider;
 import com.gluonhq.netbeans.nbfx.api.project.OpenProject;
 import com.gluonhq.netbeans.nbfx.api.project.ProjectRegistry;
+import com.gluonhq.netbeans.nbfx.api.view.ViewProvider;
 import com.gluonhq.netbeans.nbfx.project.ui.java.utils.ProjectModuleInfoAccessibilityQuery;
 import com.gluonhq.netbeans.nbfx.project.ui.utils.Projects;
 import com.gluonhq.netbeans.nbfx.project.ui.java.utils.TreeNav;
@@ -14,10 +14,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import java.util.logging.Logger;
 
 import javafx.animation.PauseTransition;
 import javafx.application.Platform;
+import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.value.ObservableValue;
 import javafx.collections.ListChangeListener;
 import javafx.scene.control.TreeItem;
@@ -33,7 +35,7 @@ import org.openide.util.lookup.InstanceContent;
 import org.openide.util.lookup.Lookups;
 
 /**
- * Shared base for the two {@link NavigatorProvider} implementations: the logical Project view
+ * Shared base for the two navigator {@link ViewProvider} implementations: the logical Project view
  * ({@link ProjectNavigatorImpl}) and the physical Files view ({@link FileNavigatorImpl}). It pulls
  * up the algorithms that are genuinely common to both trees — the per-project bookkeeping
  * ({@link RootState}), the retry/selection machinery used after a drag-and-drop move,
@@ -48,7 +50,7 @@ import org.openide.util.lookup.Lookups;
  *
  * @param <T> the tree's value type
  */
-abstract class AbstractNavigatorProvider<T> implements NavigatorProvider {
+abstract class AbstractNavigatorProvider<T> implements ViewProvider {
 
     private static final Logger BASE_LOG = Logger.getLogger(AbstractNavigatorProvider.class.getName());
 
@@ -247,13 +249,80 @@ abstract class AbstractNavigatorProvider<T> implements NavigatorProvider {
         }
     }
 
-    @Override
+    /** The roots of the projects currently shown by this view, in the order they were added. */
     public List<FileObject> getProjectRoots() {
         List<FileObject> result = new ArrayList<>();
         for (RootState state : rootStates()) {
             result.add(state.root());
         }
         return result;
+    }
+
+    // --- Project lifecycle (mirrored from ProjectRegistry by observeOpenProjects) ------------------
+
+    /**
+     * Adds the project rooted at the {@link FileObject} found in {@code context} to this view, keeping
+     * any project already shown. Adding a project that is already shown is a no-op.
+     *
+     * @param context a lookup holding the project's root {@link FileObject}
+     */
+    public abstract void addProject(Lookup context);
+
+    /** Replaces every project shown by this view with the one found in {@code context}. */
+    public void setContext(Lookup context) {
+        removeAllProjects();
+        addProject(context);
+    }
+
+    /** Requests that any in-progress project loading be cancelled, for every project still loading. */
+    public void cancelLoading() {
+    }
+
+    /** Requests that the in-progress loading of the project rooted at {@code root} be cancelled. */
+    public void cancelLoading(FileObject root) {
+    }
+
+    /** Identifiers for the currently expanded nodes of every project of this view, concatenated. */
+    public List<String> getExpandedPaths() {
+        List<String> all = new ArrayList<>();
+        for (FileObject root : getProjectRoots()) {
+            all.addAll(getExpandedPaths(root));
+        }
+        return all;
+    }
+
+    /** Identifiers for the currently expanded nodes of the project rooted at {@code root}. */
+    public List<String> getExpandedPaths(FileObject root) {
+        return List.of();
+    }
+
+    /** The identifier of the currently selected node of this view, or {@code null}. */
+    public String getSelectedPath() {
+        for (FileObject root : getProjectRoots()) {
+            String selected = getSelectedPath(root);
+            if (selected != null) {
+                return selected;
+            }
+        }
+        return null;
+    }
+
+    /** The identifier of the currently selected node of the project rooted at {@code root}. */
+    public String getSelectedPath(FileObject root) {
+        return null;
+    }
+
+    /** Registers the callback invoked on the FX thread when a project's tree has finished loading. */
+    public void setOnProjectLoaded(Consumer<FileObject> onProjectLoaded) {
+    }
+
+    /** Registers the callback invoked on the FX thread when a project could not be loaded. */
+    public void setOnProjectLoadFailed(Consumer<FileObject> onProjectLoadFailed) {
+    }
+
+    /** The currently selected files of this view, as an observable; empty by default. */
+    public ObservableValue<List<FileObject>> selectedFiles() {
+        return new SimpleObjectProperty<>(List.of());
     }
 
     /**
@@ -314,7 +383,7 @@ abstract class AbstractNavigatorProvider<T> implements NavigatorProvider {
         }
     }
 
-    @Override
+    /** Removes the project rooted at {@code root} from this view, releasing its resources. */
     public void removeProject(FileObject root) {
         RootState state = rootState(root);
         if (state != null) {
@@ -322,7 +391,7 @@ abstract class AbstractNavigatorProvider<T> implements NavigatorProvider {
         }
     }
 
-    @Override
+    /** Removes the project identified by {@code path} from this view, releasing its resources. */
     public void removeProjectAt(String path) {
         RootState state;
         synchronized (rootsLock) {
@@ -333,7 +402,7 @@ abstract class AbstractNavigatorProvider<T> implements NavigatorProvider {
         }
     }
 
-    @Override
+    /** Removes every project shown by this view, releasing all the resources associated with them. */
     public void removeAllProjects() {
         for (RootState state : rootStates()) {
             removeRootState(state);

@@ -2,9 +2,9 @@ package com.gluonhq.netbeans.nbfx.project.ui.java;
 
 import com.gluonhq.netbeans.nbfx.annotations.FxViewLocation;
 import com.gluonhq.netbeans.nbfx.annotations.FxViewRegistration;
-import com.gluonhq.netbeans.nbfx.api.NavigatorProvider;
 import com.gluonhq.netbeans.nbfx.api.project.ProjectIconProvider;
 import com.gluonhq.netbeans.nbfx.api.project.ProjectOpener;
+import com.gluonhq.netbeans.nbfx.api.view.ViewProvider;
 import com.gluonhq.netbeans.nbfx.project.ui.api.ProjectDirectory;
 import com.gluonhq.netbeans.nbfx.project.ui.api.ProjectFile;
 import com.gluonhq.netbeans.nbfx.project.ui.api.ProjectKindProvider;
@@ -60,7 +60,7 @@ import static org.netbeans.api.java.project.JavaProjectConstants.SOURCES_TYPE_JA
 import static org.netbeans.api.java.project.JavaProjectConstants.SOURCES_TYPE_RESOURCES;
 
 @ServiceProviders({
-    @ServiceProvider(service = NavigatorProvider.class, position = 10),
+    @ServiceProvider(service = ViewProvider.class, position = 10),
     @ServiceProvider(service = ProjectIconProvider.class, position = 10)
 })
 @FxViewRegistration(displayName = "Projects",

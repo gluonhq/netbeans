@@ -52,8 +52,8 @@ public final class PropertiesView implements ViewProvider {
     /**
      * Picks the object whose properties are shown from the active component's lookup: the active
      * editor document, else the file or project selected in a navigator. The global context now
-     * follows the active component (§22), so no {@code instanceof NavigatorProvider} precedence is
-     * needed: an editor contributes its document, a navigator its selected file.
+     * follows the active component (§22), so no per-consumer precedence is needed: an editor
+     * contributes its document, a navigator its selected file.
      */
     private void updateContext(FxActionContext context) {
         Object selected = firstNonNull(context.lookup(EditorDocument.class), context.lookup(FileObject.class),

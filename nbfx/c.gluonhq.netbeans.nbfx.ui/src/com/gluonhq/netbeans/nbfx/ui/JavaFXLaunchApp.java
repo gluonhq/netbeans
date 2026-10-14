@@ -44,7 +44,6 @@ import com.gluonhq.netbeans.nbfx.api.editor.EditorContext;
 import com.gluonhq.netbeans.nbfx.api.editor.EditorDocument;
 import com.gluonhq.netbeans.nbfx.api.editor.EditorSettings;
 import com.gluonhq.netbeans.nbfx.api.file.FileSelectionContext;
-import com.gluonhq.netbeans.nbfx.api.NavigatorProvider;
 import com.gluonhq.netbeans.nbfx.api.project.OpenProject;
 import com.gluonhq.netbeans.nbfx.api.project.ProjectIconProvider;
 import com.gluonhq.netbeans.nbfx.api.project.ProjectRegistry;
@@ -54,6 +53,7 @@ import com.gluonhq.netbeans.nbfx.api.view.ViewSelectionContext;
 import com.gluonhq.netbeans.nbfx.file.actions.FileUndoManager;
 import java.io.File;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.IdentityHashMap;
@@ -105,7 +105,7 @@ public class JavaFXLaunchApp extends Application implements WindowSink {
     /** Last non-maximized geometry, so a maximized window still persists a restore-size. */
     private double restoreX = Double.NaN, restoreY = Double.NaN;
     private double restoreWidth = AppState.DEFAULT_WIDTH, restoreHeight = AppState.DEFAULT_HEIGHT;
-    private Collection<? extends NavigatorProvider> providers;
+    private Collection<? extends ViewProvider> providers;
     private final AppState appState = new AppState();
     private final SessionRestorer sessionRestorer = new SessionRestorer(appState, this::viewTabFor);
     private NbfxTabPane navigatorPane;
@@ -160,14 +160,14 @@ public class JavaFXLaunchApp extends Application implements WindowSink {
     public void start(Stage stage) {
         this.stage = stage;
         instance = this;
-        // Resolve navigator providers up front
-        providers = Lookup.getDefault().lookupAll(NavigatorProvider.class);
+        // Resolve the navigator views up front (the ViewProviders registered as navigators).
+        providers = navigatorViews();
         LOG.fine("PROVIDERS = " + providers);
         // Publish the navigator-focused state so the file commands can track it (clipboard refresh).
         // The navigator selection no longer needs publishing: each navigator exposes it through its
         // own ViewProvider.getLookup(), which the global context follows (§22).
         treeFocused.subscribe(fileSelection::setNavigatorFocused);
-        for (NavigatorProvider provider : providers) {
+        for (ViewProvider provider : providers) {
             // A project's tree is built in the background and reported back through this callback,
             // which resolves the project from the loaded root: several can be loading at once.
             provider.setOnProjectLoaded(this::onProjectLoaded);
@@ -558,7 +558,7 @@ public class JavaFXLaunchApp extends Application implements WindowSink {
         if (layout.isEmpty()) {
             order = registeredNavigatorIds();
         }
-        for (NavigatorProvider provider : orderedProviders(order)) {
+        for (ViewProvider provider : orderedProviders(order)) {
             // A provider missing from a persisted layout was closed by the user; Reset Windows brings
             // it back. Only the absence of any layout at all (first run) docks every provider - an
             // empty order means the user closed them all, and docking them here would flash them into
@@ -628,7 +628,7 @@ public class JavaFXLaunchApp extends Application implements WindowSink {
      */
     private Tab viewTabFor(String viewId) {
         return NbfxTabPane.findViewTab(viewId).orElseGet(() -> {
-            for (NavigatorProvider provider : providers) {
+            for (ViewProvider provider : providers) {
                 if (provider.getId().equals(viewId)) {
                     return createNavigatorTab(provider);
                 }
@@ -654,7 +654,7 @@ public class JavaFXLaunchApp extends Application implements WindowSink {
     }
 
     /** Builds a navigator tab for {@code provider}, whose tooltip names the shortcut selecting it. */
-    private Tab createNavigatorTab(NavigatorProvider provider) {
+    private Tab createNavigatorTab(ViewProvider provider) {
         int index = new ArrayList<>(providers).indexOf(provider);
         return ViewTabs.create(provider, NbBundle.getMessage(JavaFXLaunchApp.class,
                 "Tab.navigator.tooltip", provider.getDescription(),
@@ -662,8 +662,30 @@ public class JavaFXLaunchApp extends Application implements WindowSink {
     }
 
     /** Providers ordered by {@code order} (persisted ids); unknown providers keep their natural order at the end. */
-    private List<NavigatorProvider> orderedProviders(List<String> order) {
-        List<NavigatorProvider> ordered = new ArrayList<>(providers);
+    /**
+     * The navigator views: the {@link ViewProvider}s whose {@code @FxViewRegistration} marks them as
+     * navigators, ordered by their declared position. Resolved from the global {@code Lookup} - the
+     * same service instances their tabs are built from.
+     */
+    private static List<ViewProvider> navigatorViews() {
+        Map<String, Integer> positions = new HashMap<>();
+        for (ViewRegistration registration : ViewRegistry.discover()) {
+            if (registration.navigator()) {
+                positions.put(registration.id(), registration.position());
+            }
+        }
+        List<ViewProvider> navigators = new ArrayList<>();
+        for (ViewProvider view : Lookup.getDefault().lookupAll(ViewProvider.class)) {
+            if (positions.containsKey(view.getId())) {
+                navigators.add(view);
+            }
+        }
+        navigators.sort(Comparator.comparingInt(view -> positions.getOrDefault(view.getId(), Integer.MAX_VALUE)));
+        return navigators;
+    }
+
+    private List<ViewProvider> orderedProviders(List<String> order) {
+        List<ViewProvider> ordered = new ArrayList<>(providers);
         if (!order.isEmpty()) {
             ordered.sort(Comparator.comparingInt(p -> {
                 int i = order.indexOf(p.getId());
@@ -724,7 +746,7 @@ public class JavaFXLaunchApp extends Application implements WindowSink {
 
     /** The stable navigator id of the provider at {@code index} in natural order, or {@code null} if absent. */
     private String firstNavigatorId(int index) {
-        List<NavigatorProvider> list = new ArrayList<>(providers);
+        List<ViewProvider> list = new ArrayList<>(providers);
         return index < list.size() ? list.get(index).getId() : null;
     }
 
@@ -769,11 +791,11 @@ public class JavaFXLaunchApp extends Application implements WindowSink {
         if (file == null) {
             return;
         }
-        List<NavigatorProvider> list = new ArrayList<>(providers);
+        List<ViewProvider> list = new ArrayList<>(providers);
         if (index < 0 || index >= list.size()) {
             return;
         }
-        NavigatorProvider provider = list.get(index);
+        ViewProvider provider = list.get(index);
         setNavigatorRevealInProgress(true);
         selectNavigator(provider.getId(), false);
         provider.revealFile(file);
@@ -873,7 +895,7 @@ public class JavaFXLaunchApp extends Application implements WindowSink {
         // Reuse the live tab of each provider wherever it currently sits (it may have been dragged
         // into the editor pane), so no emptied duplicate is left behind there.
         int index = 0;
-        for (NavigatorProvider provider : providers) {
+        for (ViewProvider provider : providers) {
             Tab tab = viewTabFor(provider.getId());
             if (tab != null) {
                 NbfxTabPane.moveTab(navigatorPane, tab, index++);
@@ -895,7 +917,7 @@ public class JavaFXLaunchApp extends Application implements WindowSink {
         if (id == null) {
             return navigatorPane;
         }
-        for (NavigatorProvider provider : providers) {
+        for (ViewProvider provider : providers) {
             if (provider.getId().equals(id)) {
                 return navigatorPane;
             }
@@ -941,7 +963,7 @@ public class JavaFXLaunchApp extends Application implements WindowSink {
         if (focusOwner == null || providers == null) {
             return false;
         }
-        for (NavigatorProvider provider : providers) {
+        for (ViewProvider provider : providers) {
             if (isWithin(focusOwner, provider.getView())) {
                 return true;
             }
@@ -958,7 +980,7 @@ public class JavaFXLaunchApp extends Application implements WindowSink {
         if (focusOwner == null || providers == null) {
             return null;
         }
-        for (NavigatorProvider provider : providers) {
+        for (ViewProvider provider : providers) {
             if (isWithin(focusOwner, provider.getView())) {
                 return provider.selectedFile().getValue();
             }
@@ -1144,7 +1166,7 @@ public class JavaFXLaunchApp extends Application implements WindowSink {
             LOG.warning("Opening " + path + " inside the already open project " + enclosing.getPath());
         }
         if (providers == null || providers.isEmpty()) {
-            LOG.warning("No NavigatorProviders found");
+            LOG.warning("No ViewProviders found");
             return;
         }
         // Read with the normalized path, the same key the state was captured under, and stash the
@@ -1152,7 +1174,7 @@ public class JavaFXLaunchApp extends Application implements WindowSink {
         // a project's tree as soon as it is opened, applying this pending state.
         List<String> expandedPaths = appState.getExpandedNodes(projectDir.getPath());
         String selectedPath = appState.getSelectedNode(projectDir.getPath());
-        for (NavigatorProvider provider : providers) {
+        for (ViewProvider provider : providers) {
             provider.restoreExpandedPaths(rootFileObject, expandedPaths);
             provider.restoreSelectedPath(rootFileObject, selectedPath);
         }
@@ -1424,7 +1446,7 @@ public class JavaFXLaunchApp extends Application implements WindowSink {
      * or whichever is selected), falling back to the first one when the navigator pane holds none.
      */
     private void revealProject(OpenProject project) {
-        NavigatorProvider provider = project == null ? null : selectedNavigatorProvider();
+        ViewProvider provider = project == null ? null : selectedViewProvider();
         if (provider == null) {
             return;
         }
@@ -1435,15 +1457,15 @@ public class JavaFXLaunchApp extends Application implements WindowSink {
     }
 
     /** The provider of the navigator tab currently selected in the navigator pane, or the first one. */
-    private NavigatorProvider selectedNavigatorProvider() {
-        List<NavigatorProvider> list = new ArrayList<>(providers);
+    private ViewProvider selectedViewProvider() {
+        List<ViewProvider> list = new ArrayList<>(providers);
         if (list.isEmpty()) {
             return null;
         }
         Tab selected = navigatorPane == null ? null : navigatorPane.getSelectionModel().getSelectedItem();
         String id = selected == null ? null : NbfxTabPane.viewId(selected);
         if (id != null) {
-            for (NavigatorProvider provider : list) {
+            for (ViewProvider provider : list) {
                 if (id.equals(provider.getId())) {
                     return provider;
                 }

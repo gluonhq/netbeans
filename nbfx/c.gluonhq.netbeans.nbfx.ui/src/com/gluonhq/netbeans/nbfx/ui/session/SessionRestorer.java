@@ -9,7 +9,7 @@ import com.gluonhq.netbeans.nbfx.ui.shell.NbfxTabPane;
 
 import com.gluonhq.netbeans.nbfx.api.ContentManager;
 import com.gluonhq.netbeans.nbfx.api.editor.EditorDocument;
-import com.gluonhq.netbeans.nbfx.api.NavigatorProvider;
+import com.gluonhq.netbeans.nbfx.api.view.ViewProvider;
 import com.gluonhq.netbeans.nbfx.ui.session.AppState.Layout;
 import com.gluonhq.netbeans.nbfx.ui.session.AppState.PaneLayout;
 import com.gluonhq.netbeans.nbfx.ui.session.AppState.SplitEntry;
@@ -78,7 +78,7 @@ public final class SessionRestorer {
      * showing.
      */
     public void captureSession(Collection<File> projects,
-            Collection<? extends NavigatorProvider> providers) {
+            Collection<? extends ViewProvider> providers) {
         if (projects != null) {
             for (File project : projects) {
                 captureExpansion(project, providers);
@@ -87,7 +87,7 @@ public final class SessionRestorer {
         captureLayout();
     }
 
-    private void captureExpansion(File project, Collection<? extends NavigatorProvider> providers) {
+    private void captureExpansion(File project, Collection<? extends ViewProvider> providers) {
         if (project == null || providers == null) {
             return;
         }
@@ -97,7 +97,7 @@ public final class SessionRestorer {
         }
         List<String> expanded = new ArrayList<>();
         String selected = null;
-        for (NavigatorProvider provider : providers) {
+        for (ViewProvider provider : providers) {
             // Only this project's own nodes: with several projects open the providers hold one tree
             // per root, and each project's state is persisted under its own key.
             expanded.addAll(provider.getExpandedPaths(root));

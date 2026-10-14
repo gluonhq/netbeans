@@ -86,6 +86,30 @@
             </description>
             <class package="com.gluonhq.netbeans.nbfx.api.file" name="FileSelectionContext"/>
         </change>
+        <change id="navigator.provider.removed">
+            <api name="netbeansfx_api"/>
+            <summary>NavigatorProvider removed; navigator concerns on ViewProvider.</summary>
+            <version major="1" minor="0"/>
+            <date day="14" month="10" year="2026"/>
+            <author login="sven"/>
+            <compatibility deletion="yes" semantic="incompatible"/>
+            <description>
+                Removes <code>NavigatorProvider</code>. The project views are now plain
+                <code>ViewProvider</code>s (marked as navigators by their view registration) and
+                observe <code>ProjectRegistry</code> instead of being fed. The shell-facing navigator
+                concerns move to <code>ViewProvider</code> defaults (<code>revealFile</code>,
+                <code>restoreExpandedPaths</code>/<code>restoreSelectedPath</code>,
+                <code>getExpandedPaths</code>/<code>getSelectedPath</code>,
+                <code>setOnProjectLoaded</code>/<code>setOnProjectLoadFailed</code>,
+                <code>selectedFile</code>); project-type icons and file reveal become the targeted
+                services <code>ProjectIconProvider</code> and <code>NavigatorRevealer</code>. Under
+                development until the MVP freeze.
+            </description>
+            <class package="com.gluonhq.netbeans.nbfx.api" name="NavigatorProvider"/>
+            <class package="com.gluonhq.netbeans.nbfx.api.view" name="ViewProvider"/>
+            <class package="com.gluonhq.netbeans.nbfx.api.project" name="ProjectIconProvider"/>
+            <class package="com.gluonhq.netbeans.nbfx.api.view" name="NavigatorRevealer"/>
+        </change>
     </changes>
     <htmlcontents>
         <head>
