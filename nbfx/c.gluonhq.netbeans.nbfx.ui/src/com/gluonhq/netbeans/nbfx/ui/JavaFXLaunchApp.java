@@ -1014,8 +1014,10 @@ public class JavaFXLaunchApp extends Application implements WindowSink {
     /**
      * Publishes the component whose tab is selected in the focused pane to the global action context,
      * so the context is tied to the active component (the nbfx replacement for the activated
-     * TopComponent). An editor tab publishes its document (the focused half when split); a tool view
-     * publishes itself; an empty pane publishes nothing.
+     * TopComponent). An editor tab publishes its document (the focused half when split) and becomes
+     * the active editor document, so editor-scoped commands follow the focused pane; a tool view
+     * publishes itself and keeps the previous editor document active; an empty pane publishes nothing
+     * and clears the active document.
      */
     private void updateActiveComponent() {
         TabPane focused = NbfxTabPane.focusedPane();
@@ -1024,10 +1026,12 @@ public class JavaFXLaunchApp extends Application implements WindowSink {
         ViewProvider view = NbfxTabPane.viewOf(selected);
         if (document != null) {
             activeComponents.setActiveComponent(new ActiveComponent.EditorComponent(document));
+            EditorContexts.setActiveDocument(document);
         } else if (view != null) {
             activeComponents.setActiveComponent(new ActiveComponent.ViewComponent(view));
         } else {
             activeComponents.setActiveComponent(null);
+            EditorContexts.setActiveDocument(null);
         }
     }
 

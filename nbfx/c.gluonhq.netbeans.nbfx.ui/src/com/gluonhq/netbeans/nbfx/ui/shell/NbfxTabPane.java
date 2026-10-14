@@ -484,10 +484,9 @@ public final class NbfxTabPane extends TabPane {
     }
 
     private static void wireEditorContext(TabPane tabPane) {
-        // Track the active document: whenever an editor tab becomes selected in any pane, it is active.
-        // Selecting a navigator (non-editor) tab keeps the last editor active; an empty pane clears it.
+        // The active component (and, for an editor, the active document) is published by the shell
+        // from the focused pane's selected tab; a navigator tab keeps the last editor active.
         tabPane.getSelectionModel().selectedItemProperty().addListener((obs, oldTab, selectedTab) -> {
-            trackActiveDocument(selectedTab);
             notifyActiveTabChanged();
             focusDocument(selectedTab);
         });
@@ -505,7 +504,6 @@ public final class NbfxTabPane extends TabPane {
                 .subscribe(focused -> {
                     if (Boolean.TRUE.equals(focused)) {
                         Tab selectedTab = tabPane.getSelectionModel().getSelectedItem();
-                        trackActiveDocument(selectedTab);
                         notifyActiveTabChanged();
                         // Only the pane that actually held focus restores it. Every pane of the
                         // window gets this callback, so focusing unconditionally would hand focus
@@ -552,21 +550,6 @@ public final class NbfxTabPane extends TabPane {
     private static void notifyActiveTabChanged() {
         for (Runnable listener : List.copyOf(ACTIVE_TAB_LISTENERS)) {
             listener.run();
-        }
-    }
-
-    /**
-     * Updates the shared active document from the selected tab: an editor tab becomes active; a
-     * navigator (non-editor) tab keeps the previous editor active; no selection clears it.
-     */
-    private static void trackActiveDocument(Tab selectedTab) {
-        if (selectedTab == null) {
-            setActiveDocument(null);
-        } else {
-            EditorDocument document = EditorSplit.focusedDocumentOf(selectedTab);
-            if (document != null) {
-                setActiveDocument(document);
-            }
         }
     }
 
@@ -1243,7 +1226,7 @@ public final class NbfxTabPane extends TabPane {
         tabPane.focusWithinProperty().subscribe(focused -> {
             if (focused) {
                 lastFocusedPane = tabPane;
-                trackActiveDocument(tabPane.getSelectionModel().getSelectedItem());
+                notifyActiveTabChanged();
                 LOG.fine(() -> "Focus entered the " + roleOf(tabPane) + " pane");
             }
         });

@@ -40,4 +40,17 @@ public final class EditorContexts {
     public static List<EditorDocument> documentsSnapshot() {
         return List.copyOf(openDocuments());
     }
+
+    /**
+     * Sets the active document, so editor-scoped commands follow the focused pane. Called by the
+     * shell when the focused pane's selected tab changes to an editor (or clears).
+     *
+     * @param document the document that became active, or {@code null}
+     */
+    public static void setActiveDocument(EditorDocument document) {
+        EditorContext context = context();
+        if (context != null) {
+            context.setActiveDocument(document);
+        }
+    }
 }
