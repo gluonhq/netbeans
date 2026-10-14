@@ -4,7 +4,7 @@ import com.gluonhq.netbeans.nbfx.ui.actions.ActionBars;
 import com.gluonhq.netbeans.nbfx.ui.context.ContentManagerImpl;
 import com.gluonhq.netbeans.nbfx.ui.context.EditorContexts;
 import com.gluonhq.netbeans.nbfx.ui.context.FileSelectionContextImpl;
-import com.gluonhq.netbeans.nbfx.ui.context.ViewSelectionContextImpl;
+import com.gluonhq.netbeans.nbfx.ui.context.ActiveComponentContextImpl;
 import com.gluonhq.netbeans.nbfx.ui.project.FileSystemRefresher;
 import com.gluonhq.netbeans.nbfx.ui.project.ProjectLoads;
 import com.gluonhq.netbeans.nbfx.ui.project.ProjectRegistryImpl;
@@ -50,7 +50,8 @@ import com.gluonhq.netbeans.nbfx.api.project.ProjectRegistry;
 import com.gluonhq.netbeans.nbfx.api.progress.FxProgress;
 import com.gluonhq.netbeans.nbfx.api.view.ViewManager;
 import com.gluonhq.netbeans.nbfx.api.view.ViewProvider;
-import com.gluonhq.netbeans.nbfx.api.view.ViewSelectionContext;
+import com.gluonhq.netbeans.nbfx.api.view.ActiveComponent;
+import com.gluonhq.netbeans.nbfx.api.view.ActiveComponentContext;
 import com.gluonhq.netbeans.nbfx.file.actions.FileUndoManager;
 import java.io.File;
 import java.util.ArrayList;
@@ -154,8 +155,8 @@ public class JavaFXLaunchApp extends Application implements WindowSink {
     private final FileSelectionContext fileSelection = fileSelectionContext();
     /** Whether the treeView is focused or not. */
     private final BooleanProperty treeFocused = new SimpleBooleanProperty(false);
-    /** The active-view state published to the global action context (the TopComponent replacement). */
-    private final ViewSelectionContext viewSelection = viewSelectionContext();
+    /** The active-component state published to the global action context (the TopComponent replacement). */
+    private final ActiveComponentContext activeComponents = activeComponentContext();
 
     @Override
     public void start(Stage stage) {
@@ -168,6 +169,9 @@ public class JavaFXLaunchApp extends Application implements WindowSink {
         // The navigator selection no longer needs publishing: each navigator exposes it through its
         // own ViewProvider.getLookup(), which the global context follows (§22).
         treeFocused.subscribe(fileSelection::setNavigatorFocused);
+        // Publish the active component (view or editor) whenever any pane's selected tab changes,
+        // in this window or a detached one, so the global context follows the selection (§23).
+        NbfxTabPane.addActiveTabListener(this::updateActiveComponent);
         for (ViewProvider provider : providers) {
             // A project's tree is built in the background and reported back through this callback,
             // which resolves the project from the loaded root: several can be loading at once.
@@ -1003,19 +1007,28 @@ public class JavaFXLaunchApp extends Application implements WindowSink {
         if (isWithin(focusOwner, dockArea)) {
             dockArea.markFocused(true, focusOwner);
             treeFocused.set(isNavigatorFocused(focusOwner));
-            updateActiveView();
+            updateActiveComponent();
         }
     }
 
     /**
-     * Publishes the view whose tab is selected in the focused pane to the global action context, so
-     * the context is tied to the active view (the nbfx replacement for the activated TopComponent).
-     * Editor tabs contribute no view, so the context falls back to the editor selection.
+     * Publishes the component whose tab is selected in the focused pane to the global action context,
+     * so the context is tied to the active component (the nbfx replacement for the activated
+     * TopComponent). An editor tab publishes its document (the focused half when split); a tool view
+     * publishes itself; an empty pane publishes nothing.
      */
-    private void updateActiveView() {
+    private void updateActiveComponent() {
         TabPane focused = NbfxTabPane.focusedPane();
         Tab selected = focused == null ? null : focused.getSelectionModel().getSelectedItem();
-        viewSelection.setActiveView(NbfxTabPane.viewOf(selected));
+        EditorDocument document = NbfxTabPane.focusedDocumentOf(selected);
+        ViewProvider view = NbfxTabPane.viewOf(selected);
+        if (document != null) {
+            activeComponents.setActiveComponent(new ActiveComponent.EditorComponent(document));
+        } else if (view != null) {
+            activeComponents.setActiveComponent(new ActiveComponent.ViewComponent(view));
+        } else {
+            activeComponents.setActiveComponent(null);
+        }
     }
 
     /**
@@ -1116,11 +1129,11 @@ public class JavaFXLaunchApp extends Application implements WindowSink {
         return context;
     }
 
-    private static ViewSelectionContext viewSelectionContext() {
-        ViewSelectionContext context = Lookup.getDefault().lookup(ViewSelectionContext.class);
+    private static ActiveComponentContext activeComponentContext() {
+        ActiveComponentContext context = Lookup.getDefault().lookup(ActiveComponentContext.class);
         if (context == null) {
-            LOG.warning("No ViewSelectionContext found in the Lookup; using a local instance");
-            context = new ViewSelectionContextImpl();
+            LOG.warning("No ActiveComponentContext found in the Lookup; using a local instance");
+            context = new ActiveComponentContextImpl();
         }
         return context;
     }

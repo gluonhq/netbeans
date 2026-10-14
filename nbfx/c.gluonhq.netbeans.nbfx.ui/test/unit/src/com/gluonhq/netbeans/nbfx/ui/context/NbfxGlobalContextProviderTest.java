@@ -20,7 +20,7 @@ package com.gluonhq.netbeans.nbfx.ui.context;
 
 import com.gluonhq.netbeans.nbfx.api.editor.CaretInfo;
 import com.gluonhq.netbeans.nbfx.api.editor.EditorDocument;
-import com.gluonhq.netbeans.nbfx.api.project.OpenProject;
+import com.gluonhq.netbeans.nbfx.api.view.ActiveComponent;
 import com.gluonhq.netbeans.nbfx.api.view.ViewProvider;
 
 import java.io.IOException;
@@ -42,24 +42,23 @@ import org.openide.util.lookup.Lookups;
 import org.openide.util.test.MockLookup;
 
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 
 /**
  * Verifies that the nbfx {@code ContextGlobalProvider} makes the global context follow the active
- * component (the nbfx replacement for the activated {@code TopComponent}): a view publishes its own
- * lookup, an editor publishes its document, two navigators do not answer for each other, and a
- * follower view that exposes nothing keeps the last selection.
+ * component: a view publishes its own lookup, an editor publishes its document (even after a navigator
+ * was active), two navigators do not answer for each other, and a follower view that exposes nothing
+ * keeps the last selection.
  */
 public class NbfxGlobalContextProviderTest {
 
-    private ViewSelectionContextImpl views;
-    private EditorContextImpl editors;
+    private ActiveComponentContextImpl components;
 
     @Before
     public void setUp() {
-        this.views = new ViewSelectionContextImpl();
-        this.editors = new EditorContextImpl();
-        MockLookup.setInstances(views, editors);
+        this.components = new ActiveComponentContextImpl();
+        MockLookup.setInstances(components);
     }
 
     @After
@@ -72,42 +71,31 @@ public class NbfxGlobalContextProviderTest {
         FileObject file = newFile("A.java");
         Lookup global = new NbfxGlobalContextProvider().createGlobalContext();
 
-        views.setActiveView(new FakeView(file));
+        components.setActiveComponent(new ActiveComponent.ViewComponent(new FakeView(file)));
 
         assertSame("global context does not carry the active view's file", file, global.lookup(FileObject.class));
         assertNotNull("global context does not carry the active view", global.lookup(ViewProvider.class));
     }
 
+    /**
+     * The regression: once a navigator has been active, selecting an editor must make the context
+     * carry that editor's document, not stay on the navigator.
+     */
     @Test
-    public void followsActiveEditor() throws IOException {
-        FileObject file = newFile("B.java");
-        FakeEditorDocument document = new FakeEditorDocument(file);
+    public void editorWinsOverPreviousNavigator() throws IOException {
+        FileObject navigatorFile = newFile("Nav.java");
+        FileObject editorFile = newFile("Editor.java");
+        FakeEditorDocument document = new FakeEditorDocument(editorFile);
         Lookup global = new NbfxGlobalContextProvider().createGlobalContext();
 
-        views.setActiveView(null);
-        editors.setActiveDocument(document);
+        components.setActiveComponent(new ActiveComponent.ViewComponent(new FakeView(navigatorFile)));
+        assertSame("navigator's file missing first", navigatorFile, global.lookup(FileObject.class));
 
-        assertSame("global context does not carry the active document", document, global.lookup(EditorDocument.class));
-        assertSame("global context does not carry the editor's file", file, global.lookup(FileObject.class));
-    }
+        components.setActiveComponent(new ActiveComponent.EditorComponent(document));
 
-    @Test
-    public void editorWinsOverEarlierNavigatorSelection() throws IOException {
-        FileObject a = newFile("A.java");
-        FileObject b = newFile("B.java");
-        FakeEditorDocument document = new FakeEditorDocument(b);
-        Lookup global = new NbfxGlobalContextProvider().createGlobalContext();
-
-        // A navigator carries a file; the focus then moves to an editor tab (no active view).
-        views.setActiveView(new FakeView(a));
-        editors.setActiveDocument(document);
-        assertSame("navigator's file missing", a, global.lookup(FileObject.class));
-
-        views.setActiveView(null);
-
-        assertSame("the active editor did not replace the navigator's selection", document,
-                global.lookup(EditorDocument.class));
-        assertSame("the active editor's file is missing", b, global.lookup(FileObject.class));
+        assertSame("editor did not become the active component", document, global.lookup(EditorDocument.class));
+        assertSame("editor's file missing", editorFile, global.lookup(FileObject.class));
+        assertNull("navigator's view leaked into the editor context", global.lookup(ViewProvider.class));
     }
 
     @Test
@@ -116,13 +104,13 @@ public class NbfxGlobalContextProviderTest {
         FileObject c = newFile("C.java");
         Lookup global = new NbfxGlobalContextProvider().createGlobalContext();
 
-        views.setActiveView(new FakeView(a));
+        components.setActiveComponent(new ActiveComponent.ViewComponent(new FakeView(a)));
         assertSame("first navigator's file missing", a, global.lookup(FileObject.class));
 
-        views.setActiveView(new FakeView(c));
+        components.setActiveComponent(new ActiveComponent.ViewComponent(new FakeView(c)));
         assertSame("second navigator's file missing", c, global.lookup(FileObject.class));
 
-        views.setActiveView(new FakeView(a));
+        components.setActiveComponent(new ActiveComponent.ViewComponent(new FakeView(a)));
         assertSame("first navigator's file not restored", a, global.lookup(FileObject.class));
     }
 
@@ -132,13 +120,26 @@ public class NbfxGlobalContextProviderTest {
         Lookup global = new NbfxGlobalContextProvider().createGlobalContext();
 
         // A navigator carries a file; a follower view then exposes nothing of its own.
-        views.setActiveView(new FakeView(a));
+        components.setActiveComponent(new ActiveComponent.ViewComponent(new FakeView(a)));
         assertSame("navigator's file missing", a, global.lookup(FileObject.class));
 
-        editors.setActiveDocument(null);
-        views.setActiveView(new FakeView(null));
+        components.setActiveComponent(new ActiveComponent.ViewComponent(new FakeView(null)));
 
         assertSame("a follower view blanked the global selection", a, global.lookup(FileObject.class));
+    }
+
+    @Test
+    public void editorThenNavigatorPublishesTheNavigator() throws IOException {
+        FileObject editorFile = newFile("Editor.java");
+        FileObject navFile = newFile("Nav.java");
+        Lookup global = new NbfxGlobalContextProvider().createGlobalContext();
+
+        components.setActiveComponent(new ActiveComponent.EditorComponent(new FakeEditorDocument(editorFile)));
+        assertSame("editor's file missing", editorFile, global.lookup(FileObject.class));
+
+        components.setActiveComponent(new ActiveComponent.ViewComponent(new FakeView(navFile)));
+        assertSame("navigator did not become active", navFile, global.lookup(FileObject.class));
+        assertNull("editor's document leaked into the navigator context", global.lookup(EditorDocument.class));
     }
 
     private static FileObject newFile(String name) throws IOException {

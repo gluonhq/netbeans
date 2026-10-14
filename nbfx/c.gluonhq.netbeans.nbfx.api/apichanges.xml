@@ -140,6 +140,27 @@
             <class package="com.gluonhq.netbeans.nbfx.api.elements" name="SourceLocation"/>
             <class package="com.gluonhq.netbeans.nbfx.api.view" name="CellBreadth"/>
         </change>
+        <change id="active.component.context">
+            <api name="netbeansfx_api"/>
+            <summary>ActiveComponentContext replaces ViewSelectionContext; editors are active components.</summary>
+            <version major="1" minor="0"/>
+            <date day="14" month="10" year="2026"/>
+            <author login="sven"/>
+            <compatibility addition="yes" semantic="incompatible"/>
+            <description>
+                Adds <code>ActiveComponent</code> (a sealed <code>Lookup.Provider</code> with
+                <code>ViewComponent</code> and <code>EditorComponent</code>) and
+                <code>ActiveComponentContext</code>, the active component of the focused pane - a tool
+                view <em>or</em> an editor. The global action context follows it, so selecting an editor
+                makes the context carry that editor's document instead of leaving it on the previously
+                active view. Removes <code>ViewSelectionContext</code>, which only ever carried a
+                <code>ViewProvider</code> and left editors to a separate document property. Under
+                development until the MVP freeze.
+            </description>
+            <class package="com.gluonhq.netbeans.nbfx.api.view" name="ActiveComponent"/>
+            <class package="com.gluonhq.netbeans.nbfx.api.view" name="ActiveComponentContext"/>
+            <class package="com.gluonhq.netbeans.nbfx.api.view" name="ViewSelectionContext"/>
+        </change>
     </changes>
     <htmlcontents>
         <head>

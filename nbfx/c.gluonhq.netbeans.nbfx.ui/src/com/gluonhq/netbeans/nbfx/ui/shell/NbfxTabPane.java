@@ -141,6 +141,9 @@ public final class NbfxTabPane extends TabPane {
     /** All panes created (main + navigator + every detached window). */
     private static final Set<TabPane> TAB_PANES = new LinkedHashSet<>();
 
+    /** Listeners notified when any pane's selected tab (the active component) changes. */
+    private static final List<Runnable> ACTIVE_TAB_LISTENERS = new ArrayList<>();
+
     /** True while a tab-header drag gesture is in progress (between drag-detected and drag-done). */
     private static boolean tabDragInProgress;
     /**
@@ -288,6 +291,14 @@ public final class NbfxTabPane extends TabPane {
     /** Returns the {@link EditorDocument} associated with {@code tab}, or {@code null} if none. */
     public static EditorDocument documentOf(Tab tab) {
         return tab == null ? null : (EditorDocument) tab.getProperties().get(DOCUMENT_KEY);
+    }
+
+    /**
+     * The document of {@code tab} that is (or last was) focused: the second half of a split editor
+     * while that half is focused, else the tab's own document; {@code null} for a tab without one.
+     */
+    public static EditorDocument focusedDocumentOf(Tab tab) {
+        return EditorSplit.focusedDocumentOf(tab);
     }
 
     /** Associates a stable view provider id with {@code tab} (for order/selection persistence). */
@@ -477,6 +488,7 @@ public final class NbfxTabPane extends TabPane {
         // Selecting a navigator (non-editor) tab keeps the last editor active; an empty pane clears it.
         tabPane.getSelectionModel().selectedItemProperty().addListener((obs, oldTab, selectedTab) -> {
             trackActiveDocument(selectedTab);
+            notifyActiveTabChanged();
             focusDocument(selectedTab);
         });
         tabPane.focusedProperty().subscribe(focused -> {
@@ -494,6 +506,7 @@ public final class NbfxTabPane extends TabPane {
                     if (Boolean.TRUE.equals(focused)) {
                         Tab selectedTab = tabPane.getSelectionModel().getSelectedItem();
                         trackActiveDocument(selectedTab);
+                        notifyActiveTabChanged();
                         // Only the pane that actually held focus restores it. Every pane of the
                         // window gets this callback, so focusing unconditionally would hand focus
                         // to whichever pane subscribed last (the main one, as it is built after the
@@ -519,6 +532,26 @@ public final class NbfxTabPane extends TabPane {
         EditorContext context = editorContext();
         if (context != null) {
             context.setActiveDocument(document);
+        }
+    }
+
+    /**
+     * Registers a listener invoked when any pane's selected tab changes - a view or an editor
+     * becoming the active component - so the shell can publish the active component to the global
+     * action context, in this window or a detached one.
+     *
+     * @param listener the listener to add
+     */
+    public static void addActiveTabListener(Runnable listener) {
+        if (listener != null) {
+            ACTIVE_TAB_LISTENERS.add(listener);
+        }
+    }
+
+    /** Notifies the active-tab listeners; called after a pane's selection (or window focus) changed. */
+    private static void notifyActiveTabChanged() {
+        for (Runnable listener : List.copyOf(ACTIVE_TAB_LISTENERS)) {
+            listener.run();
         }
     }
 
