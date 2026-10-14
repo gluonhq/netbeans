@@ -787,6 +787,20 @@ public abstract class FxActionContext extends Lookup {
   facade, without `nbfx.api` depending on the project API.
 - Verified by `NbfxGlobalContextProviderTest` (module-system: the global context carries the nbfx
   selection) and `ProjectContextTest` (facade resolution).
+- **Fixed (Java Navigator round, §23):** the provider was registered *without* the `position = 100`
+  its javadoc and this plan promised, so `MetaInfServicesLookup` ordered it after the Swing
+  `GlobalActionContextImpl` (`openide.windows`, discovered first) and
+  `Utilities.actionsGlobalContext()` cached the empty `TopComponent` context: every `FxActionContext`
+  consumer (Navigator, Properties, Versioning, context commands) was blind at runtime, while the unit
+  test instantiates the provider directly and never saw it. Also: when no view is active the active
+  editor document now wins over the `lastSelection` fallback (an editor tab *is* the active
+  component); the fallback only applies while a follower view that exposes nothing is active
+  (`editorWinsOverEarlierNavigatorSelection`).
+- **Pitfall:** the context is a `Lookups.proxy`, and `SimpleProxyLookup` holds its `Lookup.Result`s
+  weakly. A consumer must keep the result it listens on in a field; an inline
+  `context.lookupResult(T.class).addLookupListener(...)` is collected with its listener and never
+  fires again. `StructurePanel` was fixed; `PropertiesView`, `GitStatusView` and
+  `FindInSelectionCommand` still subscribe that way and should be fixed the same way.
 
 ### 17.2 `nbfx.project.actions` (new) and `nbfx.run` (execution-only)
 
@@ -841,6 +855,12 @@ declared default weights (only `DEFAULT_NAVIGATOR_SHARE = 0.22`).
   folders → JavaFX `Menu` (position/separators/`displayName` honoured) — **DONE (f0c20f)**; tested
   headlessly on the JavaFX 26+ headless glass platform (`-Dglass.platform=Headless` + `prism.order=sw`,
   `test-unit-sys-prop.*` in `nbfx.api`). Enables `Window ▸ IDE Tools ▸ Properties`.
+  **Extended (§23):** `@FxMenuRegistration` gained `path` (`Menus` by default, `Menus/<menu>` or
+  `ContextMenus/<context>` for a submenu) and `separatorBefore`, so a module declares a submenu of a
+  *context* menu the way it declares one of a menu (the editor's `Navigate` submenu,
+  `NbFx/ContextMenus/Editor/Navigate`); the menu and view processors write `displayName` as a
+  `bundlevalue` so `#key` references resolve; `EditorContextMenu` recurses with
+  `ActionLayerReader.readSubmenus` (display-only accelerators, as the menu is shown directly).
 - **Deferred:** sliding/auto-hide sides (FX has no native sliding; needs custom auto-hide UI).
 
 ---
@@ -873,10 +893,19 @@ Ports `NavigatorTC` + `NavigatorController` + `ProviderRegistry` + `NavigatorPan
   `Window ▸ Navigator` rename, top-level, `SELECT_NAVIGATOR`).
 - Provider registration under `NbFx/Structure/<mimeType>` (mirrors Swing `Navigators/<mimeType>`).
 - **Java members provider** (additional step): the first `FxStructurePanel`, using the Java semantic
-  engine — proves the editor/global-context contract end to end.
+  engine — proves the editor/global-context contract end to end. **Superseded (§23):** the
+  placeholder `JavaStructurePanel` is replaced by the Java Navigator port in `nbfx.structure.java`
+  (`ClassMemberPanel` + `BeanPanel`, after NetBeans' `java.navigation`/`beans` panels).
 - **Members reactivity (done):** the panel is kept in sync with the selected file; the provisional
   three-type patch was superseded when §22 landed, and the subscription is now narrowed to a single
-  `FileObject` result on the active-view lookup — see §22.7 and §22.8.
+  `FileObject` result on the active-view lookup — see §22.7 and §22.8. The Java panels' tracker
+  (§23) observes `EditorDocument` *and* `FileObject` on the context: an editor's document is scanned
+  again after each edit with the caret's row selected, a file from a project view is scanned once.
+- **Host changes (§23):** `StructurePanel` shows the active panel's
+  `FxStructurePanel.getToolbar()` beside the selector (the Swing `NavigatorPanelWithToolbar`
+  layout), remembers the panel selected last per content type (NbPreferences), and `StructureView`
+  exposes `select(FxStructurePanel)` so a command can bring a panel up; the window is
+  `openAtStartup`, carries the Swing `navigator.png` icon (`Window ▸ Navigator` is Shortcut+7).
 
 ### 19.3 Git status bar and view follow the global context
 
@@ -951,6 +980,13 @@ root from the selected project/file/document.
   selected file changes. It was first committed provisionally on the flat context; §22 reworked it
   onto the active-view lookup and the three-type subscription is now a single `FileObject` result —
   see §22.7 and §22.8.
+- **Java Navigator port (done, §23):** `nbfx.structure.java` now holds the full Java navigation
+  feature set (Members/Bean Patterns panels, Go to Source/Declaration/Super Implementation/
+  Implementation, Inspect Members, editor hyperlinks and override badges, `Navigate` menu and editor
+  submenu); `nbfx.api` gained the editor navigation SPIs (`HyperlinkProvider`,
+  `EditorAnnotationProvider`, `ElementContextMenuContributor`, `SourceLocation`, `CellBreadth`,
+  `Command.getIcon()`) and `nbfx.annotations` the submenu `path`; two runtime defects of the global
+  context were fixed on the way (§17.1).
 
 ---
 
@@ -1055,6 +1091,13 @@ root from the selected project/file/document.
   (flag *and* fills-screen) and tracks a separate restore-size. Areas/view payloads are left empty
   for now (layout stays with `AppState`/`SessionRestorer`, per the chosen scope). Cluster + purity +
   `nbfx.windows` (14) and `nbfx.ui` (4) unit tests green.
+- **`openAtStartup` in the shell (stopgap, §23):** until the window system's areas drive the layout,
+  `JavaFXLaunchApp.introduceDefaultViews()` docks every non-navigator view registered
+  `openAtStartup` that the user has never been offered (first run, a newer version bringing a new
+  view, and `Reset Windows`), recording them in `AppState` (`views.introduced`) so a view closed by
+  the user stays closed — the shell-side counterpart of `FxWindowSystem.defaultState()`'s start-up
+  tabs. `ViewTabs` renders the registration's `iconName` on the tab (16 px, resolved like an
+  `iconBase`); `ViewRegistry.find(id)` serves it.
 - **M9.3** — purity extension + packaging guard: `check-purity` now also forbids `import
   org.netbeans.core.windows` in nbfx sources, and a new `check-packaging` target asserts the nbfx
   application's clusters (`platform`/`nbfx`/`java`/`ide`/`extide`/`apisupport`, i.e.
@@ -1224,6 +1267,12 @@ navigators, and the follower fallback. The three-type subscription narrowed here
 patch in §22.8 is now superseded (the `FxStructurePanel.selectedFile` heuristic is gone); see §22.8 for
 what the patch originally did.
 
+**Corrections found at runtime (§23):** the provider was not actually the one
+`Utilities.actionsGlobalContext()` used (missing `position`), and the `lastSelection` fallback hid the
+active editor behind an earlier navigator selection; both fixed, the second with a test — see §17.1.
+The `JavaStructurePanel` placeholder this section refers to is gone; its role is played by the
+`DocumentTracker` of `nbfx.structure.java` (§23).
+
 ### 22.8 Provisional patch — Structure/members reactivity (commit `nbfx structure: refresh Navigator members on selection change`)
 
 **Superseded by §22.7** (kept as history). Until §22 lands, the Structure ("Navigator") window's
@@ -1243,6 +1292,60 @@ Why provisional: it hard-codes exactly what §22 removes — the three-type subs
 `instanceof NavigatorProvider` precedence (§22.1). Under §22 these collapse to reading the active
 component's lookup. Tracked here so the rework in §22.4 step 6 is not forgotten; the code carries no
 in-line "provisional" marker.
+
+---
+
+## 23. Java Navigator (`nbfx.structure.java`)
+
+The Java Navigator mapping:
+
+- **Module split.** `nbfx.structure` stays the Navigator *window* (`StructureView`, `StructurePanel`,
+  `FxStructurePanel` SPI, `Window ▸ Navigator`); `nbfx.structure.java` is the analogue of NetBeans'
+  `java.navigation` (+ the `beans` navigator panel): `ui.ClassMemberPanel`/`ui.BeanPanel` are the
+  `FxStructurePanel`s for `text/x-java` (`@ServiceProvider` positions 100/200) over
+  `ClassMemberPanelUI`/`BeanPanelUI` (the trees, filter bar, row menus), each fed by a
+  `DocumentTracker` while it is the active panel; `model` holds the scanners/resolvers
+  (`MembersScanner`, `BeanPatternsScanner`, `GoToResolver`, `OverriddenScanner`, `TypeResolver`);
+  `actions` holds `GoToCommand` (4 kinds), `InspectMembersCommand` (2), `GoToHyperlinkProvider`,
+  `OverriddenAnnotationProvider`, `FileMembersMenuContributor`, `JavaNavigationCommandsProvider`.
+- **Context, not shell observables.** The tracker reads `EditorDocument` then `FileObject` from
+  `FxActionContext` (results kept in fields, see the §17.1 pitfall): an active editor is rescanned
+  400 ms after each edit (`EditorDocument.textVersionProperty()`) and keeps the caret's row selected;
+  a file selected in a project view is scanned once, no row selected; a non-Java file clears the
+  panel (the host then shows "No structure available"). Scans are suspended while the panel is off
+  screen and resumed when shown. *Inspect Members* sets a type aside from the context (history combo
+  in the panel toolbar, `<auto>` returns); a re-activation of the editor the inspection started from
+  keeps it, turning to another file or editing the active document ends it.
+- **Window-scoped commands keep `EditorContext`.** The Go to / Inspect commands are editor actions
+  with `createScoped` variants for detached windows, the same deliberate exception as Find Usages
+  (§20.1); they enable on a Java active document.
+- **Layer registrations sit on the owning classes (§21.1).** `GoToCommand` declares the editor's
+  `Navigate` submenu (`@FxMenuRegistration(path = "ContextMenus/Editor", displayName =
+  "#MENU_Navigate", separatorBefore)`) and its `Menus/Navigate` + submenu refs; `InspectMembersCommand`
+  its own. The shell's `MenuRegistrations` only declares the top-level `Navigate` menu (position 40,
+  between View and Tools as in NetBeans) and the shell-owned `Select in Projects` / `Select in Files`
+  entries (`SELECT_IN_FILES` is new; both carry Shift+Shortcut+1/2 for display, the keys being bound
+  per window by `NbfxTabPane`). `Window ▸ Navigator` stays on `StructureView` (position 45).
+- **Editor SPIs added to `nbfx.api`** (`apichanges.xml` `editor.navigation.spi`):
+  `HyperlinkProvider` (Shortcut+Click → declaration, Alt+Shortcut+Click → implementations popup;
+  `HyperlinkSupport` in `nbfx.editor`), `EditorAnnotationProvider`/`EditorAnnotation` (gutter glyphs
+  for overriding/overridden methods; `AnnotationSupport` + `MarkLineNumberDecorator`),
+  `ElementContextMenuContributor` (items for a source element shown outside the editor — Find Usages
+  on a Navigator row), `SourceLocation`, `CellBreadth` (shared cell width against horizontal scroll-bar
+  oscillation), `EditorDocument.textVersionProperty()`/`getCaretScreenPosition()`, the Navigate
+  `ActionIds`, and `Command.getIcon()` (a contributed command's own menu/toolbar icon — the shell's
+  `ActionBars.ICONS` only covers shell commands; the macOS system menu bar needs the 16 px file
+  itself, hence `navigator-16.png`).
+- **Kept as data, not behaviour:** `@FxViewRegistration.iconName` on `StructureView` (rendered by
+  `ViewTabs`, §21.3) and `openAtStartup = true` (honoured by the shell stopgap, §21.3).
+- **Deferred:** styling of the panels (the `navigator.css` of the old module is attached to the panel
+  nodes as is), the Javadoc window button (placeholder, disabled), the Hierarchy view, and persisting
+  the inspect history. `docs`-level: §19.2's `NbFx/Structure/<mime>` registration folder was never
+  needed — panels resolve by `contentTypes()` through the global Lookup.
+- **Verification:** all nbfx modules build; `nbfx.annotations` (1), `nbfx.api` (15), `nbfx.windows`
+  (14), `nbfx.ui` (5) unit tests green; `check-purity` 0 violations; generated layers inspected
+  (`NbFx/Views/structure.instance` with `openAtStartup`/`iconName`, `Menus/Navigate`,
+  `ContextMenus/Editor/Navigate`).
 
 ---
 
@@ -1270,6 +1373,9 @@ in-line "provisional" marker.
 - Swing structure Navigator: `ide/spi.navigator/src/org/netbeans/modules/navigator/`
   (`NavigatorTC.java`, `NavigatorController.java`, `ProviderRegistry.java`) and
   `org/netbeans/spi/navigator/NavigatorPanel.java`.
+- Swing Java navigator (§23 reference): `java/java.navigation/src/org/netbeans/modules/java/navigation/`
+  (`ClassMemberPanel.java`, `ClassMemberPanelUI.java`, `actions/`), `java/beans/src/org/netbeans/modules/beans/BeanPanel.java`;
+  nbfx port: `nbfx/c.gluonhq.netbeans.nbfx.structure.java/src/.../structure/java/{ui,model,actions}/`.
 - Swing `@ProjectServiceProvider`/`ActionProvider`:
   `ide/projectapi/src/org/netbeans/spi/project/{ActionProvider,ProjectServiceProvider}.java`.
 - Swing global context / active-component lookup (§22):
