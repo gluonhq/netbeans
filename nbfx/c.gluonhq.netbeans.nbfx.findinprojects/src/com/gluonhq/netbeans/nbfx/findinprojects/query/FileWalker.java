@@ -143,11 +143,9 @@ public final class FileWalker {
     /**
      * The sharability of {@code fo} as the owning project's {@code SharabilityQueryImplementation}
      * answers it (Maven: the POM's build directory is {@code NOT_SHARABLE}). When no project type
-     * answers ({@code UNKNOWN}), a Maven layout is recognised by hand: a {@code target} folder next
-     * to a {@code pom.xml}.
-     * <p>
-     * TODO: other project types (Gradle {@code build/}, Ant {@code build/} / {@code dist/}) once
-     * NetBeansFX opens them.
+     * answers ({@code UNKNOWN}), the common build-output layouts are recognised by hand: a Maven
+     * {@code target} next to a {@code pom.xml}, a Gradle {@code build} next to a Gradle build or
+     * settings script, and an Ant {@code build}/{@code dist} next to a {@code build.xml}.
      */
     static Sharability sharabilityOf(FileObject fo) {
         Sharability sharability;
@@ -157,13 +155,35 @@ public final class FileWalker {
             LOG.log(Level.FINE, "SharabilityQuery failed for " + fo.getPath(), ex);
             sharability = Sharability.UNKNOWN;
         }
-        if (sharability == Sharability.UNKNOWN && fo.isFolder() && "target".equals(fo.getNameExt())) {
-            FileObject parent = fo.getParent();
-            if (parent != null && parent.getFileObject("pom.xml") != null) {
-                return Sharability.NOT_SHARABLE;
-            }
+        if (sharability == Sharability.UNKNOWN && fo.isFolder() && isBuildOutput(fo)) {
+            return Sharability.NOT_SHARABLE;
         }
         return sharability;
+    }
+
+    /**
+     * Whether {@code folder} is a build-output directory of a recognised project type by the layout
+     * of its parent: Maven {@code target/}, Gradle {@code build/}, Ant {@code build/} or {@code dist/}.
+     */
+    static boolean isBuildOutput(FileObject folder) {
+        FileObject parent = folder.getParent();
+        if (parent == null) {
+            return false;
+        }
+        return switch (folder.getNameExt()) {
+            case "target" -> parent.getFileObject("pom.xml") != null;
+            case "build" -> isGradleProject(parent) || parent.getFileObject("build.xml") != null;
+            case "dist" -> parent.getFileObject("build.xml") != null;
+            default -> false;
+        };
+    }
+
+    /** Whether {@code dir} is the root of a Gradle build (Groovy or Kotlin DSL). */
+    private static boolean isGradleProject(FileObject dir) {
+        return dir.getFileObject("build.gradle") != null
+                || dir.getFileObject("build.gradle.kts") != null
+                || dir.getFileObject("settings.gradle") != null
+                || dir.getFileObject("settings.gradle.kts") != null;
     }
 
     private boolean markVisited(FileObject folder) {
