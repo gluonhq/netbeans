@@ -262,4 +262,6 @@ nbbuild/installer/engine/src/org/netbeans/installer/product/components/netbeans-
 .github/**
 
 # NetBeansFX modules ported from github.com/gluonhq/NetBeansFX (Gluon sources, no ASF headers)
-nbfx/**
+nbfx-platform/**
+nbfx-ide/**
+nbfx-java/**
