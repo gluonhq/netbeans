@@ -19,7 +19,7 @@
     </answer>
 
     <answer id="arch-quality">
-        <p>Unit tests run on the nbfx module harness (nbjunit); the nbfx/check-purity.xml guardrail enforces UI purity.</p>
+        <p>Unit tests run on the nbfx module harness (nbjunit); the check-purity.xml guardrail enforces UI purity.</p>
     </answer>
 
     <answer id="compat-i18n">

@@ -19,7 +19,9 @@
 platform
 # application cluster second
 nb
-nbfx
+nbfx-platform
+nbfx-ide
+nbfx-java
 # ergonomics cluster if present
 ergonomics
 # and now the rest

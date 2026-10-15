@@ -52,7 +52,7 @@
         </question>
 -->
  <answer id="arch-quality">
-        <p>Unit tests run on the nbfx module harness (nbjunit); the nbfx/check-purity.xml guardrail fails on Swing/AWT imports and denylisted dependencies; per-phase smoke tests (open/edit/build/run) cover the UI.</p>
+        <p>Unit tests run on the nbfx module harness (nbjunit); the check-purity.xml guardrail fails on Swing/AWT imports and denylisted dependencies; per-phase smoke tests (open/edit/build/run) cover the UI.</p>
     </answer>
 
 
